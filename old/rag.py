@@ -47,9 +47,9 @@ def build_rag_from_folder():
     vectorstore = Chroma.from_documents(
         documents=docs,
         embedding=embeddings,
-        persist_directory=VECTOR_DB_DIR
+        persist_directory=KNOWLEDGE_FOLDER
     )
-    print(f"✅ 所有 PDF 知识已成功合并打包，保存至向量库: {VECTOR_DB_DIR}")
+    print(f"✅ 所有 PDF 知识已成功合并打包，保存至向量库: {KNOWLEDGE_FOLDER}。")
 
 if __name__ == "__main__":
     build_rag_from_folder()
