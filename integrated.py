@@ -5,6 +5,7 @@ import torch
 import pandas as pd
 import numpy as np
 import gradio as gr
+import os
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -12,7 +13,8 @@ from transformers import (
     TextIteratorStreamer,
     logging
 )
-
+from langchain_community.vectorstores import Chroma
+from langchain_community.embeddings import HuggingFaceEmbeddings
 # 避免 transformers 打印过多日志
 logging.set_verbosity_warning()
 
@@ -130,7 +132,7 @@ def compute_heatwave_risk(days: int, temp: float, df_hist=df_hist):
 # 2. 模型与 Tokenizer 加载 (来自 app.py)
 # =====================================================================
 MODEL_NAME = "Qwen/Qwen3.5-0.8B"  # 可替换为 Qwen/Qwen3.5-4B 等
-
+embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 print(f"Loading model {MODEL_NAME}...")
 model = AutoModelForCausalLM.from_pretrained(
     MODEL_NAME,
@@ -171,6 +173,22 @@ Return ONLY a valid JSON with keys: "days" (int or null), "temperature" (float o
 Example user: "4 days at 31 degrees" -> {"days": 4, "temperature": 31.0}
 Example user: "31 degrees" -> {"days": null, "temperature": 31.0}"""
 
+def query_rag_knowledge(query_text: str, top_k: int = 3) -> str:
+    """根据用户提问，去 chroma_db 里检索最相关的 3 条手册原文"""
+    if not os.path.exists("./chroma_db"):
+        return ""
+    
+    vectorstore = Chroma(persist_directory="./chroma_db", embedding_function=embeddings)
+    # 进行语义相似度搜索
+    results = vectorstore.similarity_search(query_text, k=top_k)
+    
+    if not results:
+        return ""
+    
+    # 将检索到的文本片段拼接成参考资料字符串
+    context_chunks = [f"[参考手册第 {doc.metadata.get('page', 0)+1} 页]: {doc.page_content}" for doc in results]
+    return "\n".join(context_chunks)
+
 def extract_params(user_text):
     """通过正则与小模型联合提取天数和温度参数"""
     # 优先试用正则表达式快速精准提取（最稳定）
@@ -209,36 +227,60 @@ def extract_params(user_text):
 # =====================================================================
 def bot_response(message, history):
     user_text = message.strip() if isinstance(message, str) else message.get("text", "").strip()
-
-    # 1. 尝试提取参数
+    
+    # 1. 检索 RAG 知识库（官方手册/指南/地名信息）
+    rag_context = query_rag_knowledge(user_text)
+    
+    # 2. 尝试提取参数
     days, temp = extract_params(user_text)
 
     tool_result = None
-    # 2. 如果成功提取出天数和温度，则执行确定性工具
+    # 3. 如果成功提取出天数和温度，执行确定性工具
     if days is not None and temp is not None:
         try:
             tool_result = compute_heatwave_risk(days=int(days), temp=float(temp))
         except Exception as e:
             print("Tool execution error:", e)
 
-    # 3. 构造给 Qwen 的 Prompt (Grounding)
+    # 4. 构造给 Qwen 的 Prompt (融合 Tool 数据 + RAG 知识)
+    prompt_sections = [f"User asked: '{user_text}'"]
+
+    # 4a. 如果检索到了 RAG 知识，添加 RAG 上下文块
+    if rag_context:
+        prompt_sections.append(
+            f"Here is the relevant information retrieved from official Uppsala guides and reference manuals:\n"
+            f"--- RAG KNOWLEDGE START ---\n"
+            f"{rag_context}\n"
+            f"--- RAG KNOWLEDGE END ---"
+        )
+
+    # 4b. 分情况处理：触发天气工具 vs 通用对话
     if tool_result and tool_result.get("level") != "invalid":
-        # 如果调用了工具，把准确的数据结果喂给模型，让其解释
-        prompt_instruction = f"""User asked: '{user_text}'
-We executed the Python Uppsala Heatwave Risk Tool and got these EXACT results:
-- Level: {tool_result.get('level')}
-- Description: {tool_result.get('description')}
-- Historical occurrences (1985-2026): {tool_result.get('historical_count')} times
-- Risk Score: {tool_result.get('risk_score')}
-- Uppsala Record High: {tool_result.get('record_max')} °C (on {tool_result.get('record_date')})
-- Tool Note: {tool_result.get('comment')}
-
-Please answer the user's question clearly in natural text. Explain what this risk level means, cite the historical count and record high from the tool result above, and provide health advice for Uppsala residents.
-Format key metrics nicely using a Markdown table."""
+        # 情况 A：触发了天气工具计算
+        prompt_sections.append(
+            f"We executed the Python Uppsala Heatwave Risk Tool and got these EXACT results:\n"
+            f"- Level: {tool_result.get('level')}\n"
+            f"- Description: {tool_result.get('description')}\n"
+            f"- Historical occurrences (1985-2026): {tool_result.get('historical_count')} times\n"
+            f"- Risk Score: {tool_result.get('risk_score')}\n"
+            f"- Uppsala Record High: {tool_result.get('record_max')} °C (on {tool_result.get('record_date')})\n"
+            f"- Tool Note: {tool_result.get('comment')}\n\n"
+            f"Please answer the user's question clearly in natural text:\n"
+            f"1. Explain what this risk level means using the tool calculation results (summarize key metrics in a clean Markdown table).\n"
+            f"2. Provide grounded, practical health/safety advice for Uppsala residents strictly based on the provided RAG reference knowledge."
+        )
     else:
-        # 如果参数不全，直接进行通用对话或请求澄清
-        prompt_instruction = user_text
+        # 情况 B：未触发工具（通用问答、缺参数或询问特定社区地名）
+        prompt_sections.append(
+            "Please answer the user's question clearly and naturally. "
+            "If relevant reference knowledge was provided above, integrate it strictly to answer accurately. "
+            "If parameters (like temperature or days) are missing for extreme weather assessment, answer flexibly based on standard default scenarios or gently invite the user to clarify."
+        )
 
+    # 组装最终的 prompt_instruction
+    prompt_instruction = "\n\n".join(prompt_sections)
+
+    # 5. 送入模型并流式生成
     conversation = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": prompt_instruction}
@@ -251,7 +293,7 @@ Format key metrics nicely using a Markdown table."""
     )
     inputs = tokenizer([text_prompt], return_tensors="pt").to(model.device)
 
-    # 4. 使用 Streamer 实现打字机流式输出
+    # 6. 使用 Streamer 实现打字机流式输出
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
     generation_kwargs = dict(**inputs, streamer=streamer, generation_config=temp_config)
 
@@ -262,7 +304,6 @@ Format key metrics nicely using a Markdown table."""
     for new_text in streamer:
         partial_text += new_text
         yield partial_text
-
 
 # =====================================================================
 # 5. 启动纯文本界面
