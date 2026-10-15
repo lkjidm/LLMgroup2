@@ -236,7 +236,11 @@ RULES:
 4. If the user query is off-topic, make it about Uppsala weather, climate, or public health. If you cannot answer, politely decline and say: "I cannot provide information on topics unrelated to Uppsala weather, climate, or public health."
 5. When asking about a hypothetical extreme weather scenario, always clarify that the situation is hypothetical and provide safety advice based on the RAG/manual context, but based on the scenario, not the current actual weather.
 """
-
+adapter_path = "./my_weather_lora_adapter"
+# save LoRA weights and tokenizer to the specified path
+model.save_pretrained(adapter_path)
+tokenizer.save_pretrained(adapter_path)
+print(f"LoRA weights have been successfully saved to: {adapter_path}")
 
 def query_rag_knowledge(query_text: str, top_k: int = 3, score_threshold: float = 0.35) -> str:
   if not os.path.exists('./knowledge'):
