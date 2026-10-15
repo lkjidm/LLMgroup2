@@ -27,7 +27,7 @@ async def text_to_speech(text: str, output_file: str = "output.mp3", voice: str 
     return output_file
 
 def generate_audio(text: str):
-    # 只朗读前 250 个字符的核心结论，降低延迟
+    # only convert the first 250 characters to speech to avoid long audio generation
     short_text = text[:250] if len(text) > 250 else text
     asyncio.run(text_to_speech(short_text, "response_audio.mp3"))
     return "response_audio.mp3"
@@ -35,7 +35,7 @@ def generate_audio(text: str):
 logging.set_verbosity_warning()
 
 # =====================================================================
-# 1. 数据准备与配置
+# 1. data loading and initialization
 # =====================================================================
 try:
   df_hist = pd.read_csv('./uppsala_tmax_1985_2026.csv', parse_dates=['date'])
@@ -56,13 +56,13 @@ def load_uppsala_places():
   if os.path.exists(UPPSALA_PLACES_JSON):
     with open(UPPSALA_PLACES_JSON, 'r', encoding='utf-8') as f:
       return json.load(f)
-  print('⚠️ 警告: 地名 JSON 文件不存在，将使用默认市中心坐标。')
+  print('⚠️ warning: Uppsala places JSON file not found. Using city center as default.')
   return []
 
 UPPSALA_PLACES = load_uppsala_places()
 
 # =====================================================================
-# 2. 地名提取与 API 工具函数
+# 2. location extraction and API utility functions
 # =====================================================================
 def extract_location_coords(user_text: str):
   text_lower = user_text.lower()
@@ -129,7 +129,7 @@ def compute_extreme_weather_risk(
 ):
   risks = []
 
-  # 1. 高温热浪判断
+  # 1. heatwave identification
   if temp is not None:
     if temp >= 30:
       risks.append({
@@ -149,7 +149,7 @@ def compute_extreme_weather_risk(
           ),
       })
 
-  # 2. 极寒判断 (Extreme Cold)
+  # 2. Extreme Cold
   if temp is not None:
     if temp <= -25:
       risks.append({
@@ -170,7 +170,7 @@ def compute_extreme_weather_risk(
           ),
       })
 
-  # 3. 大风判断 (Strong Wind) - 单位以 WeatherMetro 的 km/h 为主
+  # 3. Strong Wind Identification - Units in km/h as per WeatherMetro
   if wind_speed is not None:
     if wind_speed >= 70:
       risks.append({
@@ -191,7 +191,7 @@ def compute_extreme_weather_risk(
           ),
       })
 
-  # 4. 大雨/暴雨判断 (Heavy Rainfall) - 单位 mm
+  # 4. Heavy Rainfall
   if precip is not None:
     if precip >= 50:
       risks.append({
@@ -215,7 +215,7 @@ def compute_extreme_weather_risk(
   return risks
 
 # =====================================================================
-# 3. 模型与 System Prompt 加载
+# 3. model loading and system prompt configuration
 # =====================================================================
 MODEL_NAME = 'Qwen/Qwen3.5-2B'
 embeddings = HuggingFaceEmbeddings(model_name='all-MiniLM-L6-v2')
@@ -258,10 +258,10 @@ def extract_params(user_text):
   return days, temp
 
 # =====================================================================
-# 4. Gradio 核心响应逻辑（加入 Guardrail 规则判断）
+# 4. bot response generation with streaming and audio output
 # =====================================================================
 def bot_response(message, history):
-    # 1. 提取用户输入的文本内容（兼容字符串与 Gradio 字典/列表格式）
+    # 1. extract user text from message (string, dict, or list)
     if isinstance(message, str):
         user_text = message.strip()
     elif isinstance(message, dict):
@@ -277,10 +277,10 @@ def bot_response(message, history):
     else:
         user_text = str(message).strip()
 
-    # 2. 提取地名与坐标
+    # 2. extract location coordinates from user text
     loc_info = extract_location_coords(user_text)
 
-    # 3. 获取 WeatherMetro 天气数据
+    # 3. fetch weather data from WeatherMetro API
     weather = fetch_weathermetro_data(
         lat=loc_info["lat"],
         lon=loc_info["lon"],
@@ -288,16 +288,16 @@ def bot_response(message, history):
         user_text=user_text,
     )
 
-    # 4. RAG 知识库检索
+    # 4. RAG knowledge retrieval based on user query
     rag_context = query_rag_knowledge(user_text, top_k=3, score_threshold=0.35)
 
-    # 5. 提取实时气象数据与预报数据指标
+    # 5. Extract relevant weather parameters for extreme weather risk evaluation
     current_temp = weather.get("temp", None)
     wind_speed = weather.get("wind_speed", None)
     humidity_val = weather.get("humidity", "N/A")
     precip = weather.get("precipitation", 0.0)
 
-    # 如果是预报意图，提取预测期间的最高温和最大累计降水
+    # for forecast intent, compute max forecasted temp and precip for risk evaluation
     max_forecast_temp = None
     max_forecast_precip = None
     if weather.get("intent") == "forecast" and "daily" in weather:
@@ -323,7 +323,7 @@ def bot_response(message, history):
         max_forecast_precip if max_forecast_precip is not None else precip
     )
 
-    # 6. Python 确定性 Guardrail：计算多维极端天气风险（高温、极寒、大风、大雨）
+    # 6. Python function to compute extreme weather risks based on thresholds
     detected_risks = compute_extreme_weather_risk(
         temp=eval_temp, wind_speed=wind_speed, precip=eval_precip
     )
@@ -346,13 +346,13 @@ def bot_response(message, history):
             f"state that conditions are currently normal and present safety measures strictly as PRECAUTIONARY / HYPOTHETICAL advice."
         )
 
-    # 7. 组装完整 Prompt
+    # 7. concatenate Prompt
     prompt_sections = [
         f"### REALTIME STATUS EVALUATION (GUARDRAIL)\n{extreme_weather_status}",
         f"### CURRENT USER QUERY\n{user_text}",
     ]
 
-    # 天气数据部分（预报 vs 实时）
+    # weather data section
     if weather.get("intent") == "forecast" and "daily" in weather:
         forecast_str_list = [
             f"- {d.get('date')}: High {d.get('temp_max')}°C, Low {d.get('temp_min')}°C, Precip: {d.get('precip_total', 0)}mm"
@@ -369,7 +369,7 @@ def bot_response(message, history):
             f"- Relative Humidity: {humidity_val}% | Wind Speed: {wind_speed if wind_speed is not None else 'N/A'} km/h | Precip: {precip} mm"
         )
 
-    # RAG 知识库上下文
+    # RAG context
     if rag_context:
         prompt_sections.append(
             f"### LOCAL MANUAL CONTEXT (RAG)\n```text\n{rag_context}\n```"
@@ -379,7 +379,7 @@ def bot_response(message, history):
 
     current_instruction = "\n\n".join(prompt_sections)
 
-    # 8. 构建包含历史轮次对话的 Conversation
+    # 8. construct Conversation with context and history
     conversation = [{"role": "system", "content": SYSTEM_PROMPT}]
     max_history_turns = 3
     recent_history = history[-max_history_turns:] if history else []
@@ -393,7 +393,7 @@ def bot_response(message, history):
 
     conversation.append({"role": "user", "content": current_instruction})
 
-    # 9. 应用 Chat Template 并启动流式生成
+    # 9. stream model response with TextIteratorStreamer
     text_prompt = tokenizer.apply_chat_template(
         conversation, tokenize=False, add_generation_prompt=True
     )
@@ -414,12 +414,12 @@ def bot_response(message, history):
         partial_text += new_text
         yield partial_text, None
 
-    # 10. 生成并返回最终音频路径
+    # 10. generate audio for the final response
     audio_path = generate_audio(partial_text)
     yield partial_text, audio_path
 
 # =====================================================================
-# 5. UI 交互界面
+# 5. UI interface with Gradio
 # =====================================================================
 with gr.Blocks(title="CLIMES-Monitor: Uppsala Weather & Health") as demo:
   gr.Markdown("# 🌤️ CLIMES-Monitor: Uppsala Weather & Public-Health Agent")
@@ -457,3 +457,4 @@ with gr.Blocks(title="CLIMES-Monitor: Uppsala Weather & Health") as demo:
 
 if __name__ == "__main__":
   demo.launch(share=True, debug=True)
+
