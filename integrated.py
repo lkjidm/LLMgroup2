@@ -18,595 +18,442 @@ from transformers import (
     logging,
 )
 import collections
+import edge_tts
+import asyncio
 
-# 避免 transformers 打印过多日志
+async def text_to_speech(text: str, output_file: str = "output.mp3", voice: str = "en-US-AvaNeural"):
+    communicate = edge_tts.Communicate(text, voice)
+    await communicate.save(output_file)
+    return output_file
+
+def generate_audio(text: str):
+    # 只朗读前 250 个字符的核心结论，降低延迟
+    short_text = text[:250] if len(text) > 250 else text
+    asyncio.run(text_to_speech(short_text, "response_audio.mp3"))
+    return "response_audio.mp3"
+
 logging.set_verbosity_warning()
 
 # =====================================================================
-# 1. 数据准备与工具函数
+# 1. 数据准备与配置
 # =====================================================================
 try:
   df_hist = pd.read_csv('./uppsala_tmax_1985_2026.csv', parse_dates=['date'])
   print('Historical weather data loaded successfully! Shape:', df_hist.shape)
 except Exception as e:
-  print(
-      'Warning: CSV file not found. Creating a dummy dataset for demonstration.'
-  )
+  print('Warning: CSV file not found. Creating a dummy dataset for demonstration.')
   dates = pd.date_range('1985-06-01', '2026-06-30')
-  df_hist = pd.DataFrame(
-      {'date': dates, 'tmax': np.random.uniform(10, 32, len(dates))}
-  )
+  df_hist = pd.DataFrame({'date': dates, 'tmax': np.random.uniform(10, 32, len(dates))})
 
 WEATHERMETRO_API_KEY = 'uXQyXC4iqxCVdzGSCbQ0uGmir0CzRFtU'
-UPPSALA_PLACES_JSON = './knowledge/uppsala_all_places.json'
-
 DEFAULT_LAT = 59.8586
 DEFAULT_LON = 17.6389
 DEFAULT_PLACE_NAME = 'Uppsala Centrum'
-
 _weather_cache = {}
 
-
+UPPSALA_PLACES_JSON = './knowledge/uppsala_all_places.json'
 def load_uppsala_places():
-  """读取本地 2800+ 地名节点 JSON"""
   if os.path.exists(UPPSALA_PLACES_JSON):
     with open(UPPSALA_PLACES_JSON, 'r', encoding='utf-8') as f:
       return json.load(f)
   print('⚠️ 警告: 地名 JSON 文件不存在，将使用默认市中心坐标。')
   return []
 
-
 UPPSALA_PLACES = load_uppsala_places()
 
-
-# ==========================================
-# 2. 地名动态识别与坐标提取函数
-# ==========================================
+# =====================================================================
+# 2. 地名提取与 API 工具函数
+# =====================================================================
 def extract_location_coords(user_text: str):
-  """从用户输入中提取乌普萨拉具体地名并返回对应的经纬度"""
   text_lower = user_text.lower()
-
-  sorted_places = sorted(
-      UPPSALA_PLACES, key=lambda x: len(x['name']), reverse=True
-  )
-
+  sorted_places = sorted(UPPSALA_PLACES, key=lambda x: len(x['name']), reverse=True)
   for place in sorted_places:
     name = place['name']
     if len(name) > 1 and name.lower() in text_lower:
-      return {
-          'found': True,
-          'name': name,
-          'lat': place['lat'],
-          'lon': place['lon'],  # OpenStreetMap 导出的键名为 lon
-          'type': place.get('type', 'landmark'),
-      }
+      return {'found': True, 'name': name, 'lat': place['lat'], 'lon': place['lon'], 'type': place.get('type', 'landmark')}
+  return {'found': False, 'name': DEFAULT_PLACE_NAME, 'lat': DEFAULT_LAT, 'lon': DEFAULT_LON, 'type': 'city_center'}
 
-  return {
-      'found': False,
-      'name': DEFAULT_PLACE_NAME,
-      'lat': DEFAULT_LAT,
-      'lon': DEFAULT_LON,
-      'type': 'city_center',
-  }
-
-
-# ==========================================
-# 3. 动态 WeatherMetro API 查询（适配 v2 结构 + 兼容 lng 参数）
-# ==========================================
 def detect_weather_intent(user_text: str):
-    """判断用户是在查询实时天气还是未来预测"""
     text = user_text.lower()
-    
-    # 预测关键词正则匹配
-    forecast_keywords = [
-        "tomorrow", "forecast", "next week", "future", "will it", "predict"    
-    ]
+    forecast_keywords = ["tomorrow", "forecast", "next week", "future", "will it", "predict"]
     is_forecast = any(kw in text for kw in forecast_keywords)
-    
-    # 提取查询天数（如 "3 days forecast" -> 3 天，默认预测 3 天）
-    days_match = re.search(r'(\d+)\s*(?:days|day|天)', text)
+    days_match = re.search(r'(\d+)\s*(?:days|day)', text)
     days = int(days_match.group(1)) if days_match else (3 if is_forecast else 1)
-    
     return "forecast" if is_forecast else "current", days
 
-
-def fetch_weathermetro_data(
-    lat: float, lon: float, place_name: str = "Uppsala", user_text: str = ""
-) -> dict:
-    """适配 WeatherMetro v2 按小时 (hourly) 返回的真实 forecast 数据结构"""
+def fetch_weathermetro_data(lat: float, lon: float, place_name: str = "Uppsala", user_text: str = "") -> dict:
     intent, forecast_days = detect_weather_intent(user_text)
-
     now = time.time()
     cache_key = f"{intent}_{round(lat, 3)}_{round(lon, 3)}"
 
-    # 1. 检查缓存
     if cache_key in _weather_cache:
         cached_data, timestamp = _weather_cache[cache_key]
         if now - timestamp < 600:
             return cached_data
 
     headers = {"User-Agent": "UppsalaClimateBot/1.0"}
-
-    # 2. 根据意图决定 Endpoint
+    url = "https://weathermetro.com/api/v2/forecast" if intent == "forecast" else "https://weathermetro.com/api/v2/current"
+    params = {"api_key": WEATHERMETRO_API_KEY, "lat": lat, "lng": lon, "units": "metric"}
     if intent == "forecast":
-        url = "https://weathermetro.com/api/v2/forecast"
-        params = {
-            "api_key": WEATHERMETRO_API_KEY,
-            "lat": lat,
-            "lng": lon,  # WeatherMetro 参数名必须是 lng
-            "days": forecast_days,
-            "units": "metric",
-        }
-    else:
-        url = "https://weathermetro.com/api/v2/current"
-        params = {
-            "api_key": WEATHERMETRO_API_KEY,
-            "lat": lat,
-            "lng": lon,
-            "units": "metric",
-        }
+        params["days"] = forecast_days
 
     try:
         response = requests.get(url, params=params, headers=headers, timeout=8)
         if response.status_code == 200:
             data = response.json()
             resp_data = data.get("response", {}).get("data", {})
-
-            # -----------------------------------------------------------
-            # 分支 A: 处理 forecast (逐小时 hourly 列表聚合为按天 daily)
-            # -----------------------------------------------------------
             if intent == "forecast":
                 hourly = resp_data.get("hourly", {})
-                times = hourly.get("time", [])
-                temps = hourly.get("temperature_2m", [])
-                precips = hourly.get("precipitation", [])
-
-                # 按日期分组储存数据: {"2026-10-14": {"temps": [...], "precips": [...]}}
-                daily_grouped = collections.defaultdict(
-                    lambda: {"temps": [], "precips": []}
-                )
-
+                times, temps, precips = hourly.get("time", []), hourly.get("temperature_2m", []), hourly.get("precipitation", [])
+                daily_grouped = collections.defaultdict(lambda: {"temps": [], "precips": []})
                 for t, temp, precip in zip(times, temps, precips):
-                    date_key = t.split("T")[0]  # 提取 YYYY-MM-DD
-                    daily_grouped[date_key]["temps"].append(temp)
-                    daily_grouped[date_key]["precips"].append(precip)
-
-                # 计算每天的最高温、最低温和总降水量
-                parsed_daily = []
-                for date_key, values in daily_grouped.items():
-                    if values["temps"]:
-                        parsed_daily.append({
-                            "date": date_key,
-                            "temp_max": round(max(values["temps"]), 1),
-                            "temp_min": round(min(values["temps"]), 1),
-                            "precip_total": round(sum(values["precips"]), 1),
-                        })
-
-                result = {
-                    "status": "success",
-                    "intent": "forecast",
-                    "place_name": place_name,
-                    "lat": lat,
-                    "lng": lon,
-                    "forecast_days": forecast_days,
-                    "daily": parsed_daily,  # 返回聚合好的每天预报列表
-                    "timestamp": time.strftime("%H:%M:%S"),
-                }
-
-            # -----------------------------------------------------------
-            # 分支 B: 处理 current 实时数据
-            # -----------------------------------------------------------
+                    daily_grouped[t.split("T")[0]]["temps"].append(temp)
+                    daily_grouped[t.split("T")[0]]["precips"].append(precip)
+                parsed_daily = [
+                    {"date": k, "temp_max": round(max(v["temps"]), 1), "temp_min": round(min(v["temps"]), 1), "precip_total": round(sum(v["precips"]), 1)}
+                    for k, v in daily_grouped.items() if v["temps"]
+                ]
+                result = {"status": "success", "intent": "forecast", "place_name": place_name, "lat": lat, "lng": lon, "forecast_days": forecast_days, "daily": parsed_daily}
             else:
                 current = data.get("response", {}).get("current", {})
-                result = {
-                    "status": "success",
-                    "intent": "current",
-                    "place_name": place_name,
-                    "lat": lat,
-                    "lng": lon,
-                    "temp": current.get("temperature_2m", 7.4),
-                    "humidity": current.get("relative_humidity_2m", 80),
-                    "wind_speed": current.get("wind_speed_10m", 10),
-                    "condition": "Live Weather",
-                    "timestamp": time.strftime("%H:%M:%S"),
-                }
-
+                result = {"status": "success", "intent": "current", "place_name": place_name, "lat": lat, "lng": lon, "temp": current.get("temperature_2m", 7.4), "humidity": current.get("relative_humidity_2m", 80), "wind_speed": current.get("wind_speed_10m", 10), "precipitation": current.get("precipitation", 0), "condition": "Live Weather"}
             _weather_cache[cache_key] = (result, now)
             return result
-        else:
-            print(
-                f"WeatherMetro API Error {response.status_code}:"
-                f" {response.text}"
-            )
     except Exception as e:
         print(f"WeatherMetro API Exception: {e}")
 
-    # 降级兜底方案
-    return {
-        "status": "fallback",
-        "intent": intent,
-        "place_name": place_name,
-        "lat": lat,
-        "lng": lon,
-        "temp": 7.4,
-        "condition": "Fallback Weather",
-        "timestamp": time.strftime("%H:%M:%S"),
-    }
+    return {"status": "fallback", "intent": intent, "place_name": place_name, "lat": lat, "lng": lon, "temp": 7.4, "condition": "Fallback Weather"}
 
+def compute_extreme_weather_risk(
+    temp: float = None, wind_speed: float = None, precip: float = None
+):
+  risks = []
 
-def find_heatwaves(df, threshold, min_duration=3):
-  temp = df.copy()
-  temp['is_hot'] = temp['tmax'] >= threshold
-  temp['group'] = (temp['is_hot'] != temp['is_hot'].shift()).cumsum()
-  temp.loc[~temp['is_hot'], 'group'] = 0
+  # 1. 高温热浪判断
+  if temp is not None:
+    if temp >= 30:
+      risks.append({
+          "type": "HEATWAVE",
+          "level": "HIGH",
+          "desc": (
+              f"Extreme Heat Warning: Max temp reached {temp}°C (≥30°C"
+              " threshold)."
+          ),
+      })
+    elif temp >= 27:
+      risks.append({
+          "type": "HEATWAVE",
+          "level": "MODERATE",
+          "desc": (
+              f"Health-relevant Heat: Temp reached {temp}°C (≥27°C threshold)."
+          ),
+      })
 
-  hw = (
-      temp[temp['is_hot']]
-      .groupby('group')
-      .agg(
-          start=('date', 'min'),
-          end=('date', 'max'),
-          duration=('date', 'count'),
-          max_tmax=('tmax', 'max'),
-          mean_tmax=('tmax', 'mean'),
-      )
-      .reset_index(drop=True)
-  )
-  return hw[hw['duration'] >= min_duration].reset_index(drop=True)
+  # 2. 极寒判断 (Extreme Cold)
+  if temp is not None:
+    if temp <= -25:
+      risks.append({
+          "type": "EXTREME_COLD",
+          "level": "HIGH",
+          "desc": (
+              f"Severe Cold Hazard: Temp dropped to {temp}°C (≤-25°C"
+              " threshold)."
+          ),
+      })
+    elif temp <= -15:
+      risks.append({
+          "type": "EXTREME_COLD",
+          "level": "MODERATE",
+          "desc": (
+              f"Extreme Cold Caution: Temp dropped to {temp}°C (≤-15°C"
+              " threshold)."
+          ),
+      })
 
+  # 3. 大风判断 (Strong Wind) - 单位以 WeatherMetro 的 km/h 为主
+  if wind_speed is not None:
+    if wind_speed >= 70:
+      risks.append({
+          "type": "STRONG_WIND",
+          "level": "HIGH",
+          "desc": (
+              f"Severe Wind Warning: Wind speed reached {wind_speed} km/h"
+              " (≥70 km/h)."
+          ),
+      })
+    elif wind_speed >= 50:
+      risks.append({
+          "type": "STRONG_WIND",
+          "level": "MODERATE",
+          "desc": (
+              f"Strong Wind Caution: Wind speed reached {wind_speed} km/h"
+              " (≥50 km/h)."
+          ),
+      })
 
-def compute_heatwave_risk(days: int, temp: float, df_hist=df_hist):
-  """确定性计算乌普萨拉高温热浪风险的核心函数"""
-  if not isinstance(days, (int, np.integer)) or days < 1:
-    return {
-        'level': 'invalid',
-        'comment': 'Number of days must be an integer ≥ 1.',
-    }
-  if not isinstance(temp, (int, float, np.floating)) or temp < -40 or temp > 45:
-    return {'level': 'invalid', 'comment': 'Temperature must be realistic (°C).'}
+  # 4. 大雨/暴雨判断 (Heavy Rainfall) - 单位 mm
+  if precip is not None:
+    if precip >= 50:
+      risks.append({
+          "type": "HEAVY_RAIN",
+          "level": "HIGH",
+          "desc": (
+              f"Torrential Rain Warning: Accumulated precip reached {precip}"
+              " mm (≥50mm)."
+          ),
+      })
+    elif precip >= 35:
+      risks.append({
+          "type": "HEAVY_RAIN",
+          "level": "MODERATE",
+          "desc": (
+              f"Heavy Rainfall Caution: Accumulated precip reached {precip} mm"
+              " (≥35mm)."
+          ),
+      })
 
-  record_max = float(df_hist['tmax'].max())
-  record_date = str(df_hist.loc[df_hist['tmax'].idxmax(), 'date'].date())
-
-  if temp >= 30 and days >= 3:
-    hist = find_heatwaves(df_hist, threshold=30.0, min_duration=3)
-    count = len(hist)
-    score = min(0.95, 0.60 + 0.025 * max(0, 15 - count))
-    return {
-        'level': 'level2',
-        'description': 'Extreme heat (Level 2): ≥30°C for ≥3 days',
-        'historical_count': count,
-        'risk_score': float(round(score, 2)),
-        'comment': (
-            'Matches SMHI yellow-warning level. Rare but high health impact in'
-            ' Uppsala.'
-        ),
-        'record_max': record_max,
-        'record_date': record_date,
-    }
-  if temp >= 33 and days >= 1:
-    extreme_days = int((df_hist['tmax'] >= 33).sum())
-    score = min(0.75, 0.45 + 0.02 * extreme_days)
-    return {
-        'level': 'extreme_single',
-        'description': 'Extreme single day: ≥33°C (even for 1 day)',
-        'historical_count': extreme_days,
-        'risk_score': float(round(score, 2)),
-        'comment': (
-            'Very high temperature for Uppsala. Notable even as a single day.'
-        ),
-        'record_max': record_max,
-        'record_date': record_date,
-    }
-  if temp >= 27 and days >= 3:
-    hist = find_heatwaves(df_hist, threshold=27.0, min_duration=3)
-    count = len(hist)
-    score = min(0.80, 0.30 + 0.006 * count)
-    return {
-        'level': 'level1',
-        'description': 'Health-relevant heat (Level 1): ≥27°C for ≥3 days',
-        'historical_count': count,
-        'risk_score': float(round(score, 2)),
-        'comment': (
-            'Temperature range where Swedish studies show clear increases in'
-            ' mortality risk.'
-        ),
-        'record_max': record_max,
-        'record_date': record_date,
-    }
-  if temp >= 25 and days >= 5:
-    hist = find_heatwaves(df_hist, threshold=25.0, min_duration=5)
-    count = len(hist)
-    score = min(0.65, 0.18 + 0.004 * count)
-    return {
-        'level': 'level3',
-        'description': 'Classic SMHI heatwave (Level 3): ≥25°C for ≥5 days',
-        'historical_count': count,
-        'risk_score': float(round(score, 2)),
-        'comment': 'Official SMHI climatological definition of a heatwave.',
-        'record_max': record_max,
-        'record_date': record_date,
-    }
-
-  return {
-      'level': 'none',
-      'description': 'Below defined heatwave thresholds',
-      'historical_count': 0,
-      'risk_score': 0.05,
-      'comment': 'Does not meet any defined heat criteria.',
-      'record_max': record_max,
-      'record_date': record_date,
-  }
-
+  return risks
 
 # =====================================================================
-# 4. 模型加载
+# 3. 模型与 System Prompt 加载
 # =====================================================================
 MODEL_NAME = 'Qwen/Qwen3.5-2B'
 embeddings = HuggingFaceEmbeddings(model_name='all-MiniLM-L6-v2')
 print(f'Loading model {MODEL_NAME}...')
-model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, device_map='auto')
+model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, device_map='cuda:0')
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
-temp_config = GenerationConfig(
-    do_sample=False,
-    max_new_tokens=1024,
-    temperature=0.6,
-)
+temp_config = GenerationConfig(do_sample=False, max_new_tokens=1024, temperature=0.6)
 
-
-SYSTEM_PROMPT = """You are CLIMES-Monitor, an intelligent weather, climate, and public-health assistant specifically serving Uppsala, Sweden.
-
-Your core guiding rules:
-1. Intent Recognition & Topic Scope:
-   - Topic Scope: Weather, temperature, heatwaves, extreme climate events, localized geography in Uppsala, and public health / heat safety guidelines.
-   - Any query asking about weather, heatwave safety tips, cooling measures, or health precautions IS ON-TOPIC and directly relevant. Treat general climate/safety questions as naturally applied to Uppsala residents.
-   - ONLY refuse queries that are completely unrelated to weather, climate, or public health (e.g., movies, programming code troubleshooting, sports, cooking recipes, gaming).
-
-2. Direct & Helpful Advice:
-   - When asked for safety tips during heatwaves or extreme weather, provide clear, practical, and location-aware recommendations (e.g., indoor cooling, hydration, vulnerable group precautions) try to use RAG knowledge provided, still use genral public health guidance if no RAG knowledge is available.
-
-3. Grounding & Accuracy:
-   - Cite exact metrics (measured temperatures, risk levels, historical counts) when tool results or RAG contexts are provided. Never invent fictional weather data.
-
-4. Refusal Trigger (Strictly Constrained):
-   - ONLY if the query is strictly off-topic (e.g., "write python code", "who is Harry Potter"), reply with:
-     "I cannot provide information on topics unrelated to Uppsala weather, climate, or public health."
-     - Avoid JSON format in your final response.
+SYSTEM_PROMPT = """You are CLIMES-Monitor, an intelligent weather, climate, and public-health assistant serving Uppsala, Sweden.
+RULES:
+1. Your job is to answer questions about weather, temperature, forecasts, climate safety, heatwaves, extreme weather (cold/wind/rain), and public health precautions.
+2. For ALL other questions related to weather, climate, or health (even if they don't explicitly mention Uppsala), be helpful, friendly, and use the provided data and RAG context.
+3. Grounding & Zero-Hallucination on Current Status (FOR ON-TOPIC QUERIES):
+   - Always check the [REALTIME STATUS EVALUATION] section in the user prompt.
+   - If weather is NORMAL, state current actual temperature first, then present RAG/manual guidelines strictly as PRECAUTIONARY / HYPOTHETICAL advice. Never lie or claim there is an ongoing heatwave when status is normal.
+   - If the user query is on-topic, always provide a helpful answer, even if it's in other languages.
+4. If the user query is off-topic, make it about Uppsala weather, climate, or public health. If you cannot answer, politely decline and say: "I cannot provide information on topics unrelated to Uppsala weather, climate, or public health."
+5. When asking about a hypothetical extreme weather scenario, always clarify that the situation is hypothetical and provide safety advice based on the RAG/manual context, but based on the scenario, not the current actual weather.
 """
 
-EXTRACTION_PROMPT = (
-    'Extract duration (days) and temperature (°C) for Uppsala heatwave'
-    ' assessment from user query.\nReturn ONLY a valid JSON with keys: "days"'
-    ' (int or null), "temperature" (float or null).\nExample user: "4 days at 31'
-    ' degrees" -> {"days": 4, "temperature": 31.0}\nExample user: "31 degrees"'
-    ' -> {"days": null, "temperature": 31.0}'
-)
 
-
-def query_rag_knowledge(
-    query_text: str, top_k: int = 3, score_threshold: float = 0.35
-) -> str:
+def query_rag_knowledge(query_text: str, top_k: int = 3, score_threshold: float = 0.35) -> str:
   if not os.path.exists('./knowledge'):
     return ''
-
-  vectorstore = Chroma(
-      persist_directory='./knowledge', embedding_function=embeddings
-  )
-  results_with_scores = vectorstore.similarity_search_with_relevance_scores(
-      query_text, k=top_k
-  )
-
+  vectorstore = Chroma(persist_directory='./knowledge', embedding_function=embeddings)
+  results_with_scores = vectorstore.similarity_search_with_relevance_scores(query_text, k=top_k)
   context_chunks = []
   for doc, score in results_with_scores:
     if score >= score_threshold:
-      page_num = doc.metadata.get('page', 0) + 1
-      source_name = os.path.basename(doc.metadata.get('source', '官方指南'))
-      context_chunks.append(
-          f'[{source_name} 第 {page_num} 页] (相关度:'
-          f' {score:.2f}):\n{doc.page_content}'
-      )
-
-  if not context_chunks:
-    return ''
-
+      source_name = os.path.basename(doc.metadata.get('source', 'Guide'))
+      context_chunks.append(f"[{source_name}]: {doc.page_content}")
   return '\n\n'.join(context_chunks)
 
-
 def extract_params(user_text):
-  days_match = re.search(r'(\d+)\s*(?:天|days|day)', user_text, re.IGNORECASE)
-  temp_match = re.search(
-      r'(\d+(?:\.\d+)?)\s*(?:度|℃|°C|degrees)', user_text, re.IGNORECASE
-  )
-
+  days_match = re.search(r'(\d+)\s*(?:days|day)', user_text, re.IGNORECASE)
+  temp_match = re.search(r'(\d+(?:\.\d+)?)\s*(?:℃|°C|degrees)', user_text, re.IGNORECASE)
   days = int(days_match.group(1)) if days_match else None
   temp = float(temp_match.group(1)) if temp_match else None
-
-  if days is None or temp is None:
-    messages = [
-        {'role': 'system', 'content': EXTRACTION_PROMPT},
-        {'role': 'user', 'content': user_text},
-    ]
-    prompt = tokenizer.apply_chat_template(
-        messages, tokenize=False, add_generation_prompt=True
-    )
-    inputs = tokenizer([prompt], return_tensors='pt').to(model.device)
-    with torch.no_grad():
-      outputs = model.generate(**inputs, max_new_tokens=64, do_sample=False)
-    output_text = tokenizer.decode(
-        outputs[0][inputs.input_ids.shape[-1] :], skip_special_tokens=True
-    )
-
-    try:
-      json_str = re.search(r'\{.*\}', output_text, re.DOTALL).group(0)
-      data = json.loads(json_str)
-      if days is None:
-        days = data.get('days')
-      if temp is None:
-        temp = data.get('temperature')
-    except Exception:
-      pass
-
   return days, temp
 
-
 # =====================================================================
-# 5. Gradio 对话响应逻辑
+# 4. Gradio 核心响应逻辑（加入 Guardrail 规则判断）
 # =====================================================================
 def bot_response(message, history):
-  # 1. 提取用户输入的文本内容（兼容字符串与 Gradio 字典输入）
-  user_text = (
-      message.strip()
-      if isinstance(message, str)
-      else message.get("text", "").strip()
-  )
+    # 1. 提取用户输入的文本内容（兼容字符串与 Gradio 字典/列表格式）
+    if isinstance(message, str):
+        user_text = message.strip()
+    elif isinstance(message, dict):
+        user_text = str(message.get("text", "")).strip()
+    elif isinstance(message, list):
+        first_item = message[0] if len(message) > 0 else ""
+        if isinstance(first_item, str):
+            user_text = first_item.strip()
+        elif isinstance(first_item, dict):
+            user_text = str(first_item.get("text", "")).strip()
+        else:
+            user_text = str(first_item).strip()
+    else:
+        user_text = str(message).strip()
 
-  # 2. 提取地名与坐标（OpenStreetMap 数据返回 lat 与 lon）
-  loc_info = extract_location_coords(user_text)
+    # 2. 提取地名与坐标
+    loc_info = extract_location_coords(user_text)
 
-  # 3. 智能获取 WeatherMetro 天气数据（自动识别实时 current 或 预测 forecast）
-  weather = fetch_weathermetro_data(
-      lat=loc_info["lat"],
-      lon=loc_info["lon"],
-      place_name=loc_info["name"],
-      user_text=user_text,
-  )
-
-  # 4. RAG 官方防灾知识库检索
-  rag_context = query_rag_knowledge(user_text, top_k=3, score_threshold=0.35)
-
-  # 5. 参数提取与热浪风险评估
-  days, temp_param = extract_params(user_text)
-  eval_temp = temp_param if temp_param is not None else weather.get("temp")
-
-  tool_result = None
-  if days is not None and eval_temp is not None:
-    try:
-      tool_result = compute_heatwave_risk(
-          days=int(days), temp=float(eval_temp)
-      )
-    except Exception as e:
-      print("Tool execution error:", e)
-
-  # =========================================================================
-  # 6. 关键修复：优先在最外层初始化 prompt_sections 列表！
-  # =========================================================================
-  prompt_sections = [f"### CURRENT USER QUERY\n{user_text}"]
-
-  # 6a. 天气信息区块：根据意图区分【预报】与【实时】
-  if weather.get("intent") == "forecast" and "daily" in weather:
-    forecast_str_list = []
-    for day in weather["daily"]:
-      date_str = day.get("date", "Upcoming")
-      max_t = day.get("temp_max", "N/A")
-      min_t = day.get("temp_min", "N/A")
-      precip = day.get("precip_total", 0)
-      forecast_str_list.append(
-          f"- {date_str}: High {max_t}°C, Low {min_t}°C, Total Precip:"
-          f" {precip}mm"
-      )
-
-    forecast_text = (
-        "\n".join(forecast_str_list)
-        if forecast_str_list
-        else "No daily forecast available."
-    )
-    prompt_sections.append(
-        f"### WEATHER FORECAST DATA ({weather['place_name'].upper()})\n"
-        f"- Location: {weather['place_name']} (lat: {weather['lat']}, lng:"
-        f" {weather['lng']})\n"
-        f"{forecast_text}"
-    )
-  else:
-    # 使用 .get() 安全防御 KeyError
-    prompt_sections.append(
-        f"### REAL-TIME WEATHER OBSERVATION"
-        f" ({weather['place_name'].upper()})\n"
-        f"- Location: {weather['place_name']} (lat: {weather['lat']}, lng:"
-        f" {weather['lng']})\n"
-        f"- Measured Temp: {weather.get('temp', 'N/A')} °C | Condition:"
-        f" {weather.get('condition', 'Live Weather')}\n"
-        f"- Humidity: {weather.get('humidity', 'N/A')}% | Wind:"
-        f" {weather.get('wind_speed', 'N/A')} m/s"
+    # 3. 获取 WeatherMetro 天气数据
+    weather = fetch_weathermetro_data(
+        lat=loc_info["lat"],
+        lon=loc_info["lon"],
+        place_name=loc_info["name"],
+        user_text=user_text,
     )
 
-  # 6b. RAG 知识库区块
-  if rag_context:
-    prompt_sections.append(
-        "### LOCAL GEOGRAPHY & MANUAL CONTEXT"
-        f" (RAG)\n```text\n{rag_context}\n```"
+    # 4. RAG 知识库检索
+    rag_context = query_rag_knowledge(user_text, top_k=3, score_threshold=0.35)
+
+    # 5. 提取实时气象数据与预报数据指标
+    current_temp = weather.get("temp", None)
+    wind_speed = weather.get("wind_speed", None)
+    humidity_val = weather.get("humidity", "N/A")
+    precip = weather.get("precipitation", 0.0)
+
+    # 如果是预报意图，提取预测期间的最高温和最大累计降水
+    max_forecast_temp = None
+    max_forecast_precip = None
+    if weather.get("intent") == "forecast" and "daily" in weather:
+        forecast_temps = [
+            d.get("temp_max")
+            for d in weather["daily"]
+            if d.get("temp_max") is not None
+        ]
+        forecast_precips = [
+            d.get("precip_total")
+            for d in weather["daily"]
+            if d.get("precip_total") is not None
+        ]
+        if forecast_temps:
+            max_forecast_temp = max(forecast_temps)
+        if forecast_precips:
+            max_forecast_precip = max(forecast_precips)
+
+    eval_temp = (
+        max_forecast_temp if max_forecast_temp is not None else current_temp
+    )
+    eval_precip = (
+        max_forecast_precip if max_forecast_precip is not None else precip
     )
 
-  # 6c. 热浪风险评估结果区块
-  if tool_result and tool_result.get("level") != "invalid":
-    prompt_sections.append(
-        "### EXTREME HEATWAVE RISK METRICS\n"
-        f"- Risk Level: {tool_result.get('level')}"
-        f" ({tool_result.get('description')})\n"
-        f"- Historical Frequency (1985-2026):"
-        f" {tool_result.get('historical_count')} times\n"
-        f"- Uppsala Record High: {tool_result.get('record_max')} °C\n"
-        f"- Note: {tool_result.get('comment')}"
+    # 6. Python 确定性 Guardrail：计算多维极端天气风险（高温、极寒、大风、大雨）
+    detected_risks = compute_extreme_weather_risk(
+        temp=eval_temp, wind_speed=wind_speed, precip=eval_precip
     )
 
-  # 6d. 指导指令
-  prompt_sections.append(
-      "### INSTRUCTIONS\n"
-      "1. This query is directly relevant to Uppsala weather, climate, or"
-      " health safety.\n"
-      "2. State the target location and weather condition/forecast naturally"
-      " in the first sentence.\n"
-      "3. Provide practical, location-aware recommendations grounded in the"
-      " RAG context if applicable.\n"
-      "4. Maintain a warm, authoritative, and friendly tone."
-  )
+    if detected_risks:
+        risk_descriptions = "\n".join(
+            [f"- [{r['type']}] ({r['level']}): {r['desc']}" for r in detected_risks]
+        )
+        extreme_weather_status = (
+            f"STATUS: EXTREME WEATHER WARNING ACTIVE!\n"
+            f"Detected Risk Conditions:\n{risk_descriptions}\n"
+            f"INSTRUCTION: Treat the relevant extreme weather safety advice as URGENT and CURRENT."
+        )
+    else:
+        temp_disp = f"{current_temp}°C" if current_temp is not None else "normal"
+        wind_disp = f"{wind_speed} km/h" if wind_speed is not None else "N/A"
+        extreme_weather_status = (
+            f"STATUS: NORMAL WEATHER (No active severe weather warnings. Current Temp: {temp_disp}, Wind: {wind_disp}, Precip: {precip} mm).\n"
+            f"INSTRUCTION: Weather is currently normal. If user asks about extreme conditions (heatwave, coldwave, storm, heavy rain), "
+            f"state that conditions are currently normal and present safety measures strictly as PRECAUTIONARY / HYPOTHETICAL advice."
+        )
 
-  # 拼装最终的 User Instruction
-  current_instruction = "\n\n".join(prompt_sections)
+    # 7. 组装完整 Prompt
+    prompt_sections = [
+        f"### REALTIME STATUS EVALUATION (GUARDRAIL)\n{extreme_weather_status}",
+        f"### CURRENT USER QUERY\n{user_text}",
+    ]
 
-  # 7. 构建包含多轮对话历史上下文（Context History）的 Conversation 结构
-  conversation = [{"role": "system", "content": SYSTEM_PROMPT}]
+    # 天气数据部分（预报 vs 实时）
+    if weather.get("intent") == "forecast" and "daily" in weather:
+        forecast_str_list = [
+            f"- {d.get('date')}: High {d.get('temp_max')}°C, Low {d.get('temp_min')}°C, Precip: {d.get('precip_total', 0)}mm"
+            for d in weather["daily"]
+        ]
+        prompt_sections.append(
+            f"### WEATHER FORECAST DATA ({weather['place_name'].upper()})\n"
+            + "\n".join(forecast_str_list)
+        )
+    else:
+        prompt_sections.append(
+            f"### REAL-TIME WEATHER OBSERVATION ({weather['place_name'].upper()})\n"
+            f"- Temp: {weather.get('temp', 'N/A')} °C | Condition: {weather.get('condition', 'Live Weather')}\n"
+            f"- Relative Humidity: {humidity_val}% | Wind Speed: {wind_speed if wind_speed is not None else 'N/A'} km/h | Precip: {precip} mm"
+        )
 
-  # 保留最近 3 轮历史对话
-  max_history_turns = 3
-  recent_history = history[-max_history_turns:] if history else []
+    # RAG 知识库上下文
+    if rag_context:
+        prompt_sections.append(
+            f"### LOCAL MANUAL CONTEXT (RAG)\n```text\n{rag_context}\n```"
+        )
 
-  for turn in recent_history:
-    if isinstance(turn, dict):
-      conversation.append({"role": turn["role"], "content": turn["content"]})
-    elif isinstance(turn, (list, tuple)):
-      conversation.append({"role": "user", "content": turn[0]})
-      conversation.append({"role": "assistant", "content": turn[1]})
+    
 
-  conversation.append({"role": "user", "content": current_instruction})
+    current_instruction = "\n\n".join(prompt_sections)
 
-  # 8. 应用 Chat Template 并生成回复
-  text_prompt = tokenizer.apply_chat_template(
-      conversation, tokenize=False, add_generation_prompt=True
-  )
-  inputs = tokenizer([text_prompt], return_tensors="pt").to(model.device)
+    # 8. 构建包含历史轮次对话的 Conversation
+    conversation = [{"role": "system", "content": SYSTEM_PROMPT}]
+    max_history_turns = 3
+    recent_history = history[-max_history_turns:] if history else []
 
-  streamer = TextIteratorStreamer(
-      tokenizer, skip_prompt=True, skip_special_tokens=True
-  )
-  generation_kwargs = dict(
-      **inputs, streamer=streamer, generation_config=temp_config
-  )
+    for turn in recent_history:
+        if isinstance(turn, dict):
+            conversation.append({"role": turn["role"], "content": turn["content"]})
+        elif isinstance(turn, (list, tuple)):
+            conversation.append({"role": "user", "content": turn[0]})
+            conversation.append({"role": "assistant", "content": turn[1]})
 
-  thread = Thread(target=model.generate, kwargs=generation_kwargs)
-  thread.start()
+    conversation.append({"role": "user", "content": current_instruction})
 
-  partial_text = ""
-  for new_text in streamer:
-    partial_text += new_text
-    yield partial_text
+    # 9. 应用 Chat Template 并启动流式生成
+    text_prompt = tokenizer.apply_chat_template(
+        conversation, tokenize=False, add_generation_prompt=True
+    )
+    inputs = tokenizer([text_prompt], return_tensors="pt").to(model.device)
 
+    streamer = TextIteratorStreamer(
+        tokenizer, skip_prompt=True, skip_special_tokens=True
+    )
+    generation_kwargs = dict(
+        **inputs, streamer=streamer, generation_config=temp_config
+    )
 
-demo = gr.ChatInterface(
-    bot_response,
-    multimodal=False,
-    title='CLIMES-Monitor: Uppsala Weather & Heatwave Assistant',
-)
+    thread = Thread(target=model.generate, kwargs=generation_kwargs, daemon=True)
+    thread.start()
 
-if __name__ == '__main__':
-  demo.launch()
+    partial_text = ""
+    for new_text in streamer:
+        partial_text += new_text
+        yield partial_text, None
+
+    # 10. 生成并返回最终音频路径
+    audio_path = generate_audio(partial_text)
+    yield partial_text, audio_path
+
+# =====================================================================
+# 5. UI 交互界面
+# =====================================================================
+with gr.Blocks(title="CLIMES-Monitor: Uppsala Weather & Health") as demo:
+  gr.Markdown("# 🌤️ CLIMES-Monitor: Uppsala Weather & Public-Health Agent")
+
+  with gr.Row():
+    with gr.Column(scale=4):
+      chatbot = gr.Chatbot(label="Chat History", height=500)
+      with gr.Row():
+        user_input = gr.Textbox(placeholder="Ask about Uppsala weather or safety advice...", show_label=False, scale=6)
+        submit_btn = gr.Button("Send 🚀", variant="primary", scale=1)
+        stop_btn = gr.Button("Stop 🛑", variant="stop", scale=1)
+      clear_btn = gr.Button("Clear History 🗑️")
+
+    with gr.Column(scale=2):
+      gr.Markdown("### 🔊 Voice Accessibility (TTS)")
+      audio_player = gr.Audio(label="Audio Advice", autoplay=True, type="filepath")
+
+  def user_submit(message, history):
+    if not message.strip():
+      return "", history
+    history = history + [{"role": "user", "content": message}, {"role": "assistant", "content": ""}]
+    return "", history
+
+  def bot_streaming(history):
+    user_message = history[-2]["content"]
+    past_history = history[:-2]
+    for text_chunk, audio_file in bot_response(user_message, past_history):
+      history[-1]["content"] = text_chunk
+      yield history, audio_file
+
+  submit_event = user_input.submit(user_submit, [user_input, chatbot], [user_input, chatbot]).then(bot_streaming, [chatbot], [chatbot, audio_player])
+  btn_event = submit_btn.click(user_submit, [user_input, chatbot], [user_input, chatbot]).then(bot_streaming, [chatbot], [chatbot, audio_player])
+  stop_btn.click(fn=None, inputs=None, outputs=None, cancels=[submit_event, btn_event])
+  clear_btn.click(lambda: ([], None), None, [chatbot, audio_player])
+
+if __name__ == "__main__":
+  demo.launch(share=True, debug=True)
