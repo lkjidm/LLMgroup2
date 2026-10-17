@@ -1,0 +1,23 @@
+SYNTHETIC HARNESS CHECK: model, retrieval scores, weather provider, audio, and UI are test doubles.
+Offline checks passed. Loading the model once for batch acceptance and the UI...
+W1: PASS — Structured text agrees with this turn’s validated tool output.
+W2: PASS — Structured text agrees with this turn’s validated tool output.
+W3: PASS — Structured text agrees with this turn’s validated tool output.
+L1: PASS — Structured text agrees with this turn’s validated tool output.
+L2: PASS — Structured text agrees with this turn’s validated tool output.
+R1: PASS — Displayed excerpts exactly preserve selected sources; selection=model_selection
+R2: PASS — Displayed excerpts exactly preserve selected sources; selection=model_selection
+R3: PASS — Displayed excerpts exactly preserve selected sources; selection=model_selection
+G1: PASS — Structured text agrees with this turn’s validated tool output.
+G2: PASS — Displayed excerpts exactly preserve selected sources; selection=model_selection
+O1: PASS — Unrelated request declined before model/API use.
+O2: PASS — Structured text agrees with this turn’s validated tool output.
+WeatherMetro API failure: TimeoutError
+E1_timeout: PASS — Simulated failure produces an explicit unavailable answer without invented observations.
+E2_missing_fields: PASS — Simulated failure produces an explicit unavailable answer without invented observations.
+Batch finished. Evidence: /var/folders/v9/v1c7fvfx3dsgxk4nlwkj_znm0000gn/T/climes_runner__0ya6pkb/climes_final_acceptance_20261017_151805_5aad6c.zip
+Text checks do not certify medical accuracy; review the acceptance summary and source excerpts.
+Results: PASS=14, FAIL=0, UNAVAILABLE=0, ERROR=0
+LLM selections=4; retrieval fallbacks=0; audio=True
+PASS: synthetic 14-case batch, per-turn evidence, ZIP export, and false-pass rejection.
+No real model, API, speech, browser, or Gradio UI was run by this harness.
