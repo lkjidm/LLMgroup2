@@ -1,0 +1,27 @@
+{
+  "base_model": "Qwen/Qwen3.5-2B",
+  "model_weight_training_in_this_revision": false,
+  "source_verified_candidate_sha256": "8e330c75af247db140e25c939b6c4470fa382fc0da07c45ea61615cc8fe25ebb",
+  "publication_candidate_sha256": "d50035a53b905860501639ca12eba6a9084fc25064642e47a6719a25931e65dc",
+  "change_from_verified_candidate": "Read weather API key from environment; application logic unchanged.",
+  "historical_cloud_verification": "Recorded targeted runtime and browser cases; not a complete rerun of the revised START.py.",
+  "publication_checks": {
+    "offline_regression_methods_passed": 38,
+    "acceptance_harness": "passed with substitutes",
+    "live_model_api_ui_rerun": false
+  },
+  "files": {
+    "readme.md": "bf6b956dddc3a1ddcfff9c9be7b7d9e3e72f409251aa64301214ba6da00dba7b",
+    "climes_current/integrated_final.py": "d50035a53b905860501639ca12eba6a9084fc25064642e47a6719a25931e65dc",
+    "climes_current/publication_harness_checks.txt": "fac01f86280ce1001d7091eaab8f32e5eae628148d1137e1f05610073b334b57",
+    "climes_current/check_final.py": "073aa6af3879b6b69f68efd0b95c12a9e2ddc43423abffa875ecc785ad87ed87",
+    "climes_current/check_acceptance_harness.py": "25398bbc5ed5dfd1d1946042e2ff9e5b92d7c1bc583a0e97eb9fec8213ed2c4e",
+    "climes_current/publication_offline_checks.txt": "1672f4f94725c5103b566818ff17d85335ac1f24a5bc43dad56ddc927a1b1a62",
+    "climes_current/START.py": "69ccd30ba70f6120f0fc84ba6cca717cabef874f961cac265d1dd7d710aedfc0",
+    "climes_current/README.md": "be2e38316762d650c3b2b03605f82dfd0c5e11fdc8eddb161a787c81ecec4c34",
+    "climes_current/runtime_regression_results.txt": "9054ab66716f91f9d949ad7db140044ecc36a1261350ffc925ba800b1d9093f9",
+    "climes_current/harness_check_results.txt": "312898ffee62b6427b8bd78e8e0ee4b3111329351b9db033d6046b5da38bab15",
+    "climes_current/replay_fixtures.json": "6070561bc5b2fe4d52fdf27902f9bab08c05a755a1f97705cbb30969fb675acc",
+    "climes_current/offline_check_results.txt": "32142ca07bbed1345083ae1b808d92d2e603f377f7601e53c0b4b36e51fe3ae6"
+  }
+}

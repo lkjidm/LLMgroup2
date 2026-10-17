@@ -1,0 +1,50 @@
+{
+  "provenance": "Unmodified source text from the user-supplied Oct 16 retrieval replay files; test relevance scores are synthetic.",
+  "passages": [
+    {
+      "topic": "heat",
+      "source": "ready.gov_extreme-heat_hazard-info-sheet.pdf",
+      "raw_text": "HOW TO STAY SAFE \nWHEN EXTREME HEAT THREATENS\nPrepare \nNOW\nFind places in your community \nwhere you can go to get cool.\nTry to keep your home cool:\n• Cover windows with drapes \nor shades.\n• Weather-strip doors and windows.\n• Use window reflectors such as \naluminum foil-covered cardboard \nto reflect heat back outside.\n• Add insulation to keep the heat out.\n• Use a powered attic ventilator, or \nattic fan, to regulate the heat level \nof a building’s attic by clearing hot \nair."
+    },
+    {
+      "topic": "heat",
+      "source": "ready.gov_extreme-heat_hazard-info-sheet.pdf",
+      "raw_text": "HOW TO STAY SAFE \nWHEN EXTREME HEAT THREATENS\nPrepare \nNOW\nFind places in your community \nwhere you can go to get cool.\nTry to keep your home cool:\n• Cover windows with drapes \nor shades.\n• Weather-strip doors and windows.\n• Use window reflectors such as \naluminum foil-covered cardboard \nto reflect heat back outside.\n• Add insulation to keep the heat out.\n• Use a powered attic ventilator, or \nattic fan, to regulate the heat level \nof a building’s attic by clearing hot \nair."
+    },
+    {
+      "topic": "heat",
+      "source": "ready.gov_extreme-heat_hazard-info-sheet.pdf",
+      "raw_text": "place to take a break from the heat. \nIf you’re outside, find shade. Wear a \nhat wide enough to protect your face.\nWear loose, lightweight, light-\ncolored clothing. \nDrink plenty of fluids to stay \nhydrated. If you or someone you care \nfor is on a special diet, ask a doctor \nwhat would be best. \nDo not use electric fans when the \ntemperature outside is more than \n95 degrees. You could increase the \nrisk of heat-related illness. Fans create \nair flow and a false sense of comfort,"
+    },
+    {
+      "topic": "cold",
+      "source": "ready.gov_winter-storm_hazard-info-sheet.pdf",
+      "raw_text": "FIND SHELTER RIGHT AWAY\nStay off roads.\nStay indoors and \ndress warmly.\nPrepare for \npower outages.\nUse generators \noutside only.\nPay attention to \nemergency information \nand alerts.\nLook for signs of hypothermia \nand frostbite.\nCheck on neighbors."
+    },
+    {
+      "topic": "cold",
+      "source": "ready.gov_winter-storm_hazard-info-sheet.pdf",
+      "raw_text": "FIND SHELTER RIGHT AWAY\nStay off roads.\nStay indoors and \ndress warmly.\nPrepare for \npower outages.\nUse generators \noutside only.\nPay attention to \nemergency information \nand alerts.\nLook for signs of hypothermia \nand frostbite.\nCheck on neighbors."
+    },
+    {
+      "topic": "cold",
+      "source": "ready.gov_winter-storm_hazard-info-sheet.pdf",
+      "raw_text": "Limit your time outside. If you need \nto go outside, wear layers of warm \nclothing. Watch for signs of frostbite \nand hypothermia. \nAvoid carbon monoxide poisoning. \nOnly use generators and grills \noutdoors and away from windows. \nNever heat your home with a gas \nstovetop or oven. \nReduce the risk of a heart \nattack. Avoid overexertion when \nshoveling snow. \nWatch for signs of frostbite and \nhypothermia and begin treatment \nright away. \nCheck on neighbors. Older adults"
+    },
+    {
+      "topic": "flood",
+      "source": "30076.pdf",
+      "raw_text": "innehåller två fall från Sverige, Ängelholm \noch Göteborg.\n  Current Practice in Flood Risk Manage-\nment in the EU (drmkc.jrc.europa.eu)"
+    },
+    {
+      "topic": "flood",
+      "source": "fema_flood-hazard-info-sheet.pdf",
+      "raw_text": "items to higher levels. Elevate critical \nutilities. Install a back valve and a \nbattery-operated sump pump. Declutter \ndrains and gutters. Use sandbags to \ncreate a flood barrier.\nSurvive \nDURING\nPay attention to weather reports and \nlocal news updates and stay alert for \npotential signs of flash flooding. Follow \nthe instructions in all emergency alert \nnotifications.\nEvacuate immediately when ordered \nto. Do not underestimate the threat of \nflooding by failing to evacuate when it is"
+    },
+    {
+      "topic": "flood",
+      "source": "fema_flood-hazard-info-sheet.pdf",
+      "raw_text": "items to higher levels. Elevate critical \nutilities. Install a back valve and a \nbattery-operated sump pump. Declutter \ndrains and gutters. Use sandbags to \ncreate a flood barrier.\nSurvive \nDURING\nPay attention to weather reports and \nlocal news updates and stay alert for \npotential signs of flash flooding. Follow \nthe instructions in all emergency alert \nnotifications.\nEvacuate immediately when ordered \nto. Do not underestimate the threat of \nflooding by failing to evacuate when it is"
+    }
+  ]
+}
