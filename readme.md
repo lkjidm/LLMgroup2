@@ -26,4 +26,13 @@ LLMgroup2/
 ├── experiment/              # 🧪 Experimental notebooks and scripts
 ├── uppsala_tmax_1985_2026.csv # 🌡️ Historical Uppsala maximum temperature records
 └── equirements.txt         # 📦 Python dependencies
- 
+
+## Report progress - 17 October 2026
+
+The shared Prism project is the working version of the report.
+
+- Section 3 (Architecture) is complete.
+- Section 4 (Results) is complete except for user feedback.
+- User feedback will be added after testing.
+- Figure placement will be adjusted after the full report is complete.
+
