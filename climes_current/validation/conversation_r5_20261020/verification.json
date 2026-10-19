@@ -1,0 +1,33 @@
+{
+  "release": "CLIMES conversation repair r5",
+  "date": "2026-10-20",
+  "base_application_sha256": "2cac70585c43919535551342fc131ab0474aff6392c4cc2770c7f8587a2f9a67",
+  "application_sha256": "be30f3b3880100c59c9911b48331047388fa3776c65e154fdb9b8bd450920161",
+  "results": {
+    "offline_regression_methods": 38,
+    "integration_methods": 19,
+    "conversation_methods": 25,
+    "synthetic_harness_cases": 17,
+    "all_passed": true
+  },
+  "scope": "Local code and real bundled-data checks; model selection, vector ranking, HTTP, speech and UI in the harness use test doubles. No live r5 run performed.",
+  "monthly_definition": "Each counted run uses consecutive days entirely within the requested month; other months and missing dates break runs.",
+  "verified_counts": {
+    "at_least_31C_3days_all_months": 6,
+    "at_least_31C_3days_July": 5,
+    "at_least_31C_4days_all_months": 2,
+    "at_least_32C_3days_all_months": 3,
+    "at_least_35C_4days_all_months": 0
+  },
+  "files_sha256": {
+    "heatwave_stats.py": "9b918c70b5973c2b4c11c240fd64ddc54487bc1126a0390011d0aba8c03c4adf",
+    "climes_current/integrated_final.py": "be30f3b3880100c59c9911b48331047388fa3776c65e154fdb9b8bd450920161",
+    "climes_current/START.py": "d262286bcbdbdb4838cd2c9cf5785471ceeda5b4a2925958064999bc0eb4cd7c",
+    "climes_current/check_conversation.py": "43d7236e6243684caa6943057393c3b1b5ee729961e34518c72529583b66a4d9",
+    "climes_current/README.md": "22e809488c1412a1ef8b7632a9330897cd181de31b4c031cedc00b7583282e9c",
+    "climes_current/validation/conversation_r5_20261020/offline_38.txt": "b468dc63bd585cc8163fa2f7a928c0219b1fbd32cdcd146c32785c43e65cba8a",
+    "climes_current/validation/conversation_r5_20261020/integration_19.txt": "0c7e7bccdf870589aeeea7e0823716934427c95ff8c594782657e6eab02ea470",
+    "climes_current/validation/conversation_r5_20261020/conversation_25.txt": "0fd21f351aa7be3d106ee90e2a3a87af47fc1c18ea681696955d4e90c9f5cddb",
+    "climes_current/validation/conversation_r5_20261020/synthetic_harness_17.txt": "1fd50645d2cd904e008bb47f805b0b557561aeafc898c1b63526d761611f0295"
+  }
+}

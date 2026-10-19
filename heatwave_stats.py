@@ -33,13 +33,19 @@ def _load():
     return _df
 
 
-def find_heatwaves(df, threshold, min_duration=3):
+def find_heatwaves(df, threshold, min_duration=3, month=None, comparison="at_least"):
     if isinstance(threshold, bool) or not isinstance(threshold, Real) or not math.isfinite(threshold):
         raise ValueError('Threshold must be finite')
     if isinstance(min_duration, bool) or not isinstance(min_duration, Integral) or min_duration < 1:
         raise ValueError('Duration must be a positive integer')
+    if month is not None and (isinstance(month, bool) or not isinstance(month, Integral) or not 1 <= month <= 12):
+        raise ValueError('Month must be an integer from 1 to 12')
+    if comparison not in {'at_least', 'above'}:
+        raise ValueError('Comparison must be at_least or above')
     data = _prepare(df)
-    hot = data['tmax'].ge(threshold)
+    if month is not None:
+        data = data.loc[data['date'].dt.month.eq(month)].copy()
+    hot = data['tmax'].gt(threshold) if comparison == 'above' else data['tmax'].ge(threshold)
     consecutive = data['date'].diff().dt.days.eq(1)
     # A missing date or missing temperature breaks a consecutive-day run.
     data['group'] = (hot.ne(hot.shift()) | ~consecutive).cumsum()
@@ -50,14 +56,14 @@ def find_heatwaves(df, threshold, min_duration=3):
     return events[events['duration'].ge(min_duration)].reset_index(drop=True)
 
 
-def historical_heatwave_stats(days: int, temp: float) -> dict:
+def historical_heatwave_stats(days: int, temp: float, month=None, comparison="at_least") -> dict:
     if isinstance(days, bool) or not isinstance(days, Integral) or days < 1:
         return {'error': 'days must be an integer >= 1'}
     if isinstance(temp, bool) or not isinstance(temp, Real) or not math.isfinite(temp) or not -40 <= temp <= 45:
         return {'error': 'temperature must be a finite Celsius value from -40 to 45'}
     try:
         data = _load()
-        events = find_heatwaves(data, float(temp), int(days))
+        events = find_heatwaves(data, float(temp), int(days), month=month, comparison=comparison)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         return {'error': 'Historical observations unavailable', 'reason': type(exc).__name__}
     first, last = data['date'].min(), data['date'].max()
@@ -69,8 +75,10 @@ def historical_heatwave_stats(days: int, temp: float) -> dict:
         longest = {'start': str(row['start'].date()), 'end': str(row['end'].date()),
                    'duration': int(row['duration']), 'max_tmax': float(row['max_tmax'])}
     return {
-        'label': f'Daily maximum >= {temp:g} C for at least {days} consecutive days',
+        'label': f'Daily maximum {">" if comparison == "above" else ">="} {temp:g} C for at least {days} consecutive days',
         'query_days': int(days), 'query_temp': float(temp),
+        'query_month': int(month) if month is not None else None, 'comparison': comparison,
+        'month_counting_method': 'All days of a qualifying run must fall within the selected month; cross-month days are excluded' if month is not None else 'All calendar months',
         'threshold_used': float(temp), 'minimum_duration_used': int(days),
         'historical_count': len(events), 'years_covered': round(years, 3),
         'empirical_rate_per_year': round(len(events) / years, 4),

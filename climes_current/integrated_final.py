@@ -58,7 +58,7 @@ logging.set_verbosity_warning()
 # =====================================================================
 # 1. data loading and initialization
 # =====================================================================
-WEATHERMETRO_API_KEY = os.environ.get("WEATHERMETRO_API_KEY", "")
+WEATHERMETRO_API_KEY = os.environ.get("WEATHERMETRO_API_KEY", "").strip()
 DEFAULT_LAT = 59.8586
 DEFAULT_LON = 17.6389
 DEFAULT_PLACE_NAME = 'Uppsala Centrum'
@@ -143,6 +143,7 @@ def fetch_weathermetro_data(lat: float, lon: float, place_name: str = "Uppsala",
             return {**cached_data, 'place_name': place_name}
 
     def unavailable(reason):
+        print(f'WeatherMetro request unavailable: {reason}', flush=True)
         return unavailable_weather(intent, lat, lon, place_name, reason)
 
     if forecast_days < 1:
@@ -213,6 +214,11 @@ def fetch_weathermetro_data(lat: float, lon: float, place_name: str = "Uppsala",
 
 def weather_unavailable_message(weather):
     kind = 'forecast' if weather.get('intent') == 'forecast' else 'current weather'
+    if weather.get('reason') in {'http_401', 'http_403'}:
+        return (f"I could not retrieve valid {kind} data for {weather['place_name']}. "
+                'The weather service rejected the API credentials or access permissions. '
+                'Ask the demo maintainer to check the WeatherMetro API key and restart the app. '
+                'I cannot confirm the temperature or weather risk from this request.')
     return (
         f"I could not retrieve valid {kind} data for {weather['place_name']}. "
         "The weather service failed or returned incomplete data. "
@@ -346,7 +352,7 @@ def uppsala_today():
 
 
 def is_direct_weather_query(user_text):
-    if re.search(r'\b(?:precautions?|advice|safe|safety|risks?|protect|prepare|heatwave|flood|suppose|hypothetical|imagine|assume)\b', user_text, re.IGNORECASE):
+    if re.search(r'\b(?:precautions?|advice|safe|safety|risks?|protect|prepar\w*|heatwaves?|flood\w*|suppose|hypothetical|imagine|assume|keep cool|stay cool|cool down)\b', user_text, re.IGNORECASE):
         return False
     return bool(re.search(r'\b(?:weather|forecast|temperature|humidity|precipitation|wind)\b', user_text, re.IGNORECASE))
 
@@ -411,26 +417,49 @@ def extract_user_text(message):
     return ''
 
 
+
+def request_months(text):
+    names = ('January', 'February', 'March', 'April', 'May', 'June',
+             'July', 'August', 'September', 'October', 'November', 'December')
+    return [i for i, name in enumerate(names, 1)
+            if re.search(r'\b(?:' + name + '|' + name[:3] + r')\b', text, re.IGNORECASE)]
+
+
+def request_durations(text):
+    words = {word: str(i) for i, word in enumerate(
+        ('one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
+         'eleven', 'twelve', 'thirteen', 'fourteen'), 1)}
+    pattern = r'(?<![\w.\-])([0-9]+|' + '|'.join(words) + r')\s*(?:consecutive\s+)?days?\b'
+    return [int(words.get(value, value)) for value in re.findall(pattern, text)]
+
+
 def classify_request(user_text):
-    text = unicodedata.normalize('NFKC', user_text).casefold()
+    text = unicodedata.normalize('NFKC', user_text).casefold().replace('−', '-')
     if re.search(r'\b(?:poem|poetry|spaceship|recipe|song|fiction|write code|programming)\b', text):
         return 'unsupported', None
-    scenario_marker = re.search(r'\b(?:suppose|hypothetical|imagine|assume)\b|\bwhat\s+if\b|\bif\s+(?:it|the temperature)\s+(?:is|were|was|reaches)\b', text)
-    if re.search(r'\bif\b', text) and re.search(r'\d\s*°\s*[cf]\b|degrees?\s+(?:celsius|fahrenheit)\b', text):
-        scenario_marker = True
-    historical = bool(re.search(r'\b(?:historical|historically|how often|frequency|past events)\b', text))
+    months = request_months(text)
+    historical = bool(re.search(r'\b(?:historical|historically|how often|frequency|past events|ever had)\b', text))
     healthcare = bool(re.search(r'\b(?:healthcare|hospitals?|health systems?|health care)\b', text))
+    scenario_marker = bool(re.search(r'\b(?:suppose|hypothetical|imagine|assume)\b|\bwhat\s+if\b|\bif\s+(?:it|the temperature)\s+(?:is|were|was|reaches)\b', text))
+    temperature_mention = bool(re.search(r'-?\d+(?:\.\d+)?\s*(?:°\s*[cf]\b|degrees?\b)', text))
+    if re.search(r'\bif\b', text) and temperature_mention:
+        scenario_marker = True
+    # A month-specific future event cannot be confirmed from a historical count.
+    future_month = months and re.search(r'\b(?:will|forecast|predict|next|coming)\b', text)
+    if future_month and not historical and not scenario_marker:
+        return 'long_range_forecast', {'months': months}
     topic = None
     for name, words in [
-        ('heat', r'\b(?:heat|heatwave|hot|overheat\w*)\b'),
-        ('cold', r'\b(?:cold|coldwave|winter|frostbite|hypothermia|snow)\b'),
-        ('flood', r'\b(?:flood\w*|heavy rain|rainstorm)\b'),
+        ('heat', r'\b(?:heat|heatwaves?|hot|overheat\w*|keep cool|stay cool|cool down)\b'),
+        ('cold', r'\b(?:cold|coldwaves?|winter|frostbite|hypothermia|snow)\b'),
+        ('flood', r'\b(?:flood\w*|heavy rain|rainstorms?)\b'),
     ]:
         if re.search(words, text):
             topic = name
             break
-    if scenario_marker or historical:
-        matches = re.findall(r'(?<![\w.])(-?\d+(?:\.\d+)?)\s*(?:°\s*([cf])\b|degrees?\s+(celsius|fahrenheit)\b)', text.replace('−', '-'))
+    ambiguous_event = bool(temperature_mention and re.search(r'\b(?:can|could)\s+(?:we|uppsala|it)\s+(?:have|get|experience|reach|be)\b', text))
+    if scenario_marker or historical or ambiguous_event:
+        matches = re.findall(r'(?<![\w.])(-?\d+(?:\.\d+)?)\s*(?:°\s*([cf])\b|degrees?\s+(celsius|fahrenheit)\b)', text)
         if len(matches) != 1:
             return 'clarify_scenario', None
         value, symbol, word = matches[0]
@@ -439,24 +468,34 @@ def classify_request(user_text):
             value = (value - 32) * 5 / 9
         if not math.isfinite(value):
             return 'clarify_scenario', None
-        duration = re.findall(r'(?<![\w.\-])([0-9]+)\s*(?:consecutive\s+)?days?\b', text)
+        duration = request_durations(text)
         invalid_duration = re.search(r'(?<!\w)-\d+\s*(?:consecutive\s+)?days?\b|\d+\.\d+\s*(?:consecutive\s+)?days?\b', text)
-        if invalid_duration or len(duration) > 1 or (duration and int(duration[0]) < 1):
+        if invalid_duration or len(duration) > 1 or (duration and duration[0] < 1):
             return 'clarify_history', None
+        comparison = 'above' if re.search(r'\b(?:above|over|more than|greater than)\s+-?\d', text) else 'at_least'
+        detail = {'temperature_c': value, 'topic': 'heat', 'comparison': comparison}
+        if duration:
+            detail['duration_days'] = duration[0]
+        if months:
+            detail['month'] = months[0]
+        # Do not silently ignore additional requested date restrictions.
+        unsupported_scope = (len(months) > 1 or re.search(r'\b(?:spring|summer|autumn|fall|winter|(?:19|20)\d{2})\b', text))
+        if (historical or (scenario_marker and duration and value >= 27)) and unsupported_scope:
+            return 'clarify_history_scope', None
         if historical:
             if not duration:
                 return 'clarify_history', None
-            return 'historical', {'temperature_c': value, 'duration_days': int(duration[0]), 'topic': 'heat'}
+            return 'historical', detail
+        if ambiguous_event and not scenario_marker:
+            return 'clarify_event_intent', detail
         topic = 'heat' if value >= 27 else 'cold' if value <= -15 else topic
         if topic is None:
             return 'unsupported_scenario', {'temperature_c': value}
-        detail = {'temperature_c': value, 'topic': topic}
-        if duration:
-            detail['duration_days'] = int(duration[0])
+        detail['topic'] = topic
         if healthcare:
             detail['healthcare'] = True
         return 'hypothetical', detail
-    advice = bool(re.search(r'\b(?:precautions?|advice|safety|protect|prepare|preparedness|guidance)\b', text))
+    advice = bool(re.search(r'\b(?:precautions?|advice|safety|protect|prepar\w*|guidance|keep cool|stay cool|cool down|keep warm|stay warm)\b', text))
     if topic and advice:
         return 'advice', {'topic': topic, **({'healthcare': True} if healthcare else {})}
     if topic and re.search(r'\b(?:now|current|currently|confirm|right now|today)\b', text):
@@ -465,6 +504,8 @@ def classify_request(user_text):
         return 'weather', None
     if topic:
         return 'advice', {'topic': topic, **({'healthcare': True} if healthcare else {})}
+    if temperature_mention:
+        return 'clarify_event_intent', None
     return 'unsupported', None
 
 
@@ -529,11 +570,29 @@ def is_substantive_policy_text(text):
 
 
 def complete_policy_sentences(text):
+    # PDF headings are not part of the recommendation sentence.
+    text = re.sub(r'(?m)^[A-Z][A-Z \t-]{8,}\n', '', text)
     clean = ' '.join(re.sub(r'(?<=\w)-\s*\n\s*(?=\w)', '-', text).split())
     sentences = re.findall(r'(?:^|(?<=[.!?])\s+)([A-Z][^.!?]*[.!?])', clean)
-    return [sentence for sentence in sentences if len(sentence.split()) >= 8
-            and re.search(r'\b(?:must|should|requires?|predefined operational measures|preparedness training|surge protocols|adequate staffing|strategic reserves)\b', sentence, re.IGNORECASE)
-            and not re.search(r'\b(?:CONCLUSION|RECOMMENDATIONS|Policy Brief|References)\b', sentence)]
+    selected = []
+    for index, sentence in enumerate(sentences):
+        if (len(sentence.split()) < 8 or
+                not re.search(r'\b(?:must|should|requires?|predefined operational measures|preparedness training|surge protocols|adequate staffing|strategic reserves|prevention reduces|early warning systems|surge response capacity|secure access to medicines)\b', sentence, re.IGNORECASE) or
+                re.search(r'\b(?:CONCLUSION|RECOMMENDATIONS|Policy Brief|References)\b', sentence)):
+            continue
+        # A complete sentence may still depend on the preceding sentence.
+        if re.match(r'(?:This|These|It|They|Such|Because)\b', sentence):
+            if index == 0:
+                continue
+            previous = sentences[index - 1]
+            if len(previous.split()) < 8 or re.match(r'(?:This|These|It|They|Such|Because)\b', previous):
+                continue
+            sentence = previous + ' ' + sentence
+            if previous in selected:
+                selected.remove(previous)
+        if sentence not in selected:
+            selected.append(sentence)
+    return selected
 
 
 def retrieve_manual_passages(topic, top_k=3, healthcare=False):
@@ -549,7 +608,7 @@ def retrieve_manual_passages(topic, top_k=3, healthcare=False):
     if topic not in local_sources or top_k < 1:
         return []
     policy = (['CLIMES_Healthcare_preparedness.pdf'],
-              f'Healthcare preparedness recommendations staffing surge protocols supplies {topic} extreme weather')
+              f'What healthcare preparedness is recommended during {topic} extremes? Prevention, surge response and recovery in Swedish healthcare services.')
     # English resident questions require resident actions in English. Municipal
     # handbook titles/reference lists cannot displace actionable leaflet text.
     # The CLIMES healthcare policy remains available for its intended audience.
@@ -578,14 +637,16 @@ def retrieve_manual_passages(topic, top_k=3, healthcare=False):
                     continue
                 display = '\n'.join(actions)
             seen.add(fingerprint)
-            eligible.append((doc, score, source, raw, display, len(actions)))
-        # Coverage of usable precautions outranks a title's semantic similarity.
-        for doc, score, source, raw, display, action_count in sorted(eligible, key=lambda p: (p[5], p[1]), reverse=True):
+            hazard_matches = len(re.findall({'heat': r'\b(?:heatwaves?|heat|hot)\b', 'cold': r'\b(?:cold|winter)\b', 'flood': r'\b(?:flood\w*|heavy rain)\b'}[topic], raw, re.IGNORECASE)) if healthcare else 0
+            relevance = (2 * len(sentences) + min(hazard_matches, 1)) if healthcare else len(actions)
+            eligible.append((doc, score, source, raw, display, relevance))
+        # Prefer usable recommendation coverage and hazard context over titles.
+        for doc, score, source, raw, display, relevance in sorted(eligible, key=lambda p: (p[5], p[1]), reverse=True):
             passages.append({
                 'id': f'P{len(passages) + 1}', 'source': source,
                 'page': doc.metadata.get('page'), 'score': float(score),
                 'raw_text': raw, 'text': normalize_manual_units(display, source),
-                'action_count': action_count, 'audience': 'healthcare' if healthcare else 'residents',
+                'action_count': 0 if healthcare else relevance, 'guidance_rank': relevance, 'audience': 'healthcare' if healthcare else 'residents',
             })
             if len(passages) >= top_k:
                 break
@@ -650,6 +711,16 @@ def select_passages(question, passages):
         return selected, 'retrieval_fallback'
 
 
+
+def deduplicate_guidance(actions):
+    unique = list(dict.fromkeys(action.strip() for action in actions if action.strip()))
+    generic = 'Use generators outside only.'
+    detailed = 'Only use generators and grills outdoors and away from windows.'
+    if generic in unique and detailed in unique:
+        unique.remove(generic)
+    return unique
+
+
 def render_conversational_guidance(location, topic, selected, scenario=None):
     labels = {'heat': 'hot weather', 'cold': 'very cold weather', 'flood': 'heavy rain or flooding'}
     healthcare = selected[0].get('audience') == 'healthcare'
@@ -682,6 +753,10 @@ def render_conversational_guidance(location, topic, selected, scenario=None):
             sources.append(label)
     # Keep full sentences and their conditions; do not paraphrase numbers or
     # use the model to invent new advice. Source passages remain in the log.
+    actions = deduplicate_guidance(actions)
+    if healthcare:
+        scope = 'These are general healthcare-system preparedness priorities; the brief does not provide a hazard-specific clinical protocol.'
+        context = context + ' ' + scope if scenario is not None else scope
     lines = [opening, context, '\n'.join('- ' + action for action in actions)]
     if healthcare:
         lines.append('This is healthcare-system preparedness, not personalised resident guidance.')
@@ -727,7 +802,12 @@ def render_manual_answer(location, topic, selected, scenario=None):
 def get_historical_context(detail):
     try:
         from heatwave_stats import historical_heatwave_stats
-        result = historical_heatwave_stats(detail['duration_days'], detail['temperature_c'])
+        options = {}
+        if detail.get('month') is not None:
+            options['month'] = detail['month']
+        if detail.get('comparison', 'at_least') != 'at_least':
+            options['comparison'] = detail['comparison']
+        result = historical_heatwave_stats(detail['duration_days'], detail['temperature_c'], **options)
     except Exception as exc:
         result = {'error': 'Historical observations unavailable', 'reason': type(exc).__name__}
     emit_event('historical_tool', result=result)
@@ -743,8 +823,13 @@ def format_historical_reply(result, location):
     period = result['period'].split(' to ')
     years = f'{period[0][:4]}–{period[-1][:4]}'
     duration = small_numbers.get(days, str(days))
-    condition = (f'daily maximum temperatures of at least {result["query_temp"]:g}°C '
+    operator = 'above' if result.get('comparison') == 'above' else 'at least'
+    condition = (f'daily maximum temperatures {operator} {result["query_temp"]:g}°C '
                  f'for at least {duration} consecutive ' + ('day' if days == 1 else 'days'))
+    month = result.get('query_month')
+    if month is not None:
+        month_name = datetime(2000, month, 1).strftime('%B')
+        condition += f', with all counted days within {month_name}'
     if count == 0:
         finding = f'no matching runs were found with {condition}'
     elif count == 1:
@@ -777,9 +862,15 @@ def build_answer(user_text):
     if route == 'unsupported':
         return 'I can help with Uppsala weather, forecasts, and source-based preparedness for heat, cold, or flooding. I cannot complete unrelated requests.'
     if route == 'clarify_scenario':
-        return 'Please specify one hypothetical temperature with an explicit °C or °F unit, and the weather hazard you want to discuss.'
+        return 'Please specify one temperature with an explicit °C or °F unit, and whether you mean a hypothetical scenario, a historical occurrence, or a future forecast.'
     if route == 'clarify_history':
         return 'Please specify one temperature with an explicit °C or °F unit and one positive whole number of consecutive days for the historical comparison.'
+    if route == 'clarify_event_intent':
+        return 'Do you mean whether this happened in the historical Uppsala records, a hypothetical scenario, or a future forecast? Please specify °C or °F if the unit is missing.'
+    if route == 'clarify_history_scope':
+        return 'The historical tool supports the full bundled record or one named calendar month. It does not currently support a selected year, season, or multiple months. Please choose one month or the full record.'
+    if route == 'long_range_forecast':
+        return 'I cannot confirm a specific consecutive-day temperature event for that month from this application. Historical station counts are not a forecast or a probability of a future event. You can ask for a historical comparison with an explicit temperature, unit, duration and month.'
     if route == 'unsupported_scenario':
         return 'Please specify the weather hazard for this hypothetical temperature, such as extreme heat, extreme cold, or flooding.'
     if route in {'weather', 'risk_status'}:

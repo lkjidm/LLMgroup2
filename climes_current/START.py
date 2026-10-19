@@ -45,8 +45,10 @@ def validate_case(context, question, answer, events):
     if history_event is not None and not history_event.get('error'):
         if (history_event.get('query_days') != route['detail'].get('duration_days') or
                 history_event.get('minimum_duration_used') != route['detail'].get('duration_days') or
+                history_event.get('query_month') != route['detail'].get('month') or
+                history_event.get('comparison', 'at_least') != route['detail'].get('comparison', 'at_least') or
                 abs(history_event.get('threshold_used', float('inf')) - route['detail']['temperature_c']) > 1e-8):
-            return 'FAIL', 'Historical tool substituted a different threshold or duration.'
+            return 'FAIL', 'Historical tool substituted a different threshold, duration, month or comparison.'
     if kind == 'historical':
         result = next(e['result'] for e in events if e['event'] == 'historical_tool')
         if result.get('error'):
@@ -136,6 +138,12 @@ def main(package=None, project=None, output_root=None, open_ui=True, download=Tr
     if integration_check.returncode:
         print(integration_check.stdout)
         raise RuntimeError('Integration checks failed; agent was not started.')
+    conversation_check = subprocess.run([sys.executable, str(package/'check_conversation.py')],
+                                       text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    (output/'conversation_checks.txt').write_text(conversation_check.stdout, encoding='utf-8')
+    if conversation_check.returncode:
+        print(conversation_check.stdout)
+        raise RuntimeError('Conversation checks failed; agent was not started.')
     print('Offline checks passed. Loading the model once for batch acceptance and the UI...', flush=True)
     os.chdir(project)
     namespace = runpy.run_path(str(candidate), run_name='climes_final_candidate')
@@ -253,7 +261,7 @@ def main(package=None, project=None, output_root=None, open_ui=True, download=Tr
     for name in ('torch','transformers','gradio','langchain-community','chromadb','sentence-transformers','requests','edge-tts'):
         try:dependencies[name]=version(name)
         except PackageNotFoundError:dependencies[name]=None
-    component_paths = [candidate, package/'START.py', package/'check_final.py', package/'check_integration.py',
+    component_paths = [candidate, package/'START.py', package/'check_final.py', package/'check_integration.py', package/'check_conversation.py',
                        project/'integrated.py', project/'heatwave_stats.py',
                        project/'uppsala_tmax_1985_2026.csv', project/'knowledge/chroma.sqlite3']
     component_hashes = {str(p.relative_to(project)) if p.is_relative_to(project) else p.name:
@@ -267,7 +275,7 @@ def main(package=None, project=None, output_root=None, open_ui=True, download=Tr
             'selection_fallbacks':sum(e.get('method')=='retrieval_fallback' for e in recorded)}
     (output/'acceptance.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     (output/'answers.md').write_text('\n\n'.join(f'## {r["id"]}: {r["status"]}\n\n{r["question"]}\n\n{r["answer"]}' for r in summary),encoding='utf-8')
-    for source in (candidate, project/'heatwave_stats.py', package/'version_manifest.json'):
+    for source in (candidate, project/'heatwave_stats.py', package/'check_conversation.py', package/'version_manifest.json'):
         if source.is_file(): (output/source.name).write_bytes(source.read_bytes())
     archive_path=output.with_suffix('.zip')
     with ZipFile(archive_path,'w') as archive:

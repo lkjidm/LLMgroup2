@@ -1,68 +1,40 @@
 {
-  "candidate": "CLIMES combined candidate r4 2026-10-19",
-  "superseded_live_result": "First combined run reported 17/17 structural passes but manual inspection found cover/reference-list excerpts instead of resident precautions. It is not semantic acceptance.",
-  "main_commit": "bc8b70bba4e91df284dcf7ce42a870efdc4967d8",
-  "pr3_commit": "41c867e3417044ceaa6a3e8e3fa7f6543d9b3f7d",
+  "candidate": "CLIMES conversation repair r5 2026-10-20",
+  "base_application_sha256": "2cac70585c43919535551342fc131ab0474aff6392c4cc2770c7f8587a2f9a67",
   "base_model": "Qwen/Qwen3.5-2B",
   "model_weights_changed": false,
   "canonical_entry": "integrated.py -> climes_current/integrated_final.py",
   "changes": [
-    "Unified root launcher and fixed implementation",
-    "Audience-appropriate English resident action extraction and substantive CLIMES healthcare retrieval",
-    "Exact historical threshold/duration; missing dates break runs",
-    "17-case live runner with component hashes; notebook points to unified code"
+    "Natural-language routing and heatwave plural coverage",
+    "Explicit calendar-month filtering and strict/inclusive historical comparisons",
+    "Clarification of ambiguous questions and unsupported forecast horizons",
+    "Source sentence context, heading removal and covered generator duplicate removal",
+    "Actionable authentication diagnostics and startup conversation checks"
   ],
   "local_checks": {
-    "offline_regression_methods_passed": 38,
-    "integration_test_methods_passed": 19,
-    "synthetic_harness_cases_passed": 17
+    "offline_regression_methods": 38,
+    "integration_methods": 19,
+    "conversation_methods": 25,
+    "synthetic_harness_cases": 17,
+    "all_passed": true
   },
-  "live_model_api_retrieval_speech_ui_rerun": true,
-  "limitations": [
-    "Local harness uses test doubles; it is not live acceptance",
-    "English resident advice uses verified leaflet sentences; Swedish municipal manuals are retained but not substituted for English precautions",
-    "Historical rates are descriptive, not forecasts or official warnings"
-  ],
+  "live_model_api_retrieval_speech_ui_rerun": false,
+  "previous_live_evidence": {
+    "candidate": "r4",
+    "directory": "climes_current/validation/live_r4_20261019",
+    "scope": "Historical evidence for r4; not a live validation of r5"
+  },
+  "verification_scope": "Local code and real bundled-data checks; model selection, vector ranking, HTTP, speech and UI in the harness use test doubles. No live r5 run performed.",
   "files": {
-    "integrated.py": "428d9c6a54d9034b7903b5404d6e42e8d9dee715abefeb173d496d769b382ada",
-    "heatwave_stats.py": "58910d909fead20bdead84325e1ec2910233c7ee54b248fa648e9b76319b8da6",
-    "requirements.txt": "db3a4b06606f550b7f1a85233aa88a56881f6c04da35ff0939450c95e0aaa92d",
-    "readme.md": "03bada11245e09f907b3ac3b5623f39308ade2c65567cc7dff37b94588d3dbef",
-    ".gitignore": "1110289a60fe87946d34512fc9407985f2348ab93101fedd8c875c5e8ec51b69",
-    "test.ipynb": "d5dfadc4f9ec6f8116715df1003116d42756129dfb2f6ef5224a2248c9d6ea91",
-    "climes_current/integrated_final.py": "2cac70585c43919535551342fc131ab0474aff6392c4cc2770c7f8587a2f9a67",
-    "climes_current/START.py": "4e9ccba9ccc920c4a7ec241c0e06a12c7a9a799a8538e6f2facc9ae9041278a3",
-    "climes_current/check_final.py": "1a59684ba05b7fac836a5c69f9fc1e3b43f6b55c6dd04d9eb6a7c6834b2de8f2",
-    "climes_current/check_acceptance_harness.py": "cc8d6510620f5bd5d10972a118379a97c15a4d1da2f16ff1a544fb1af085c368",
-    "climes_current/check_integration.py": "7c06ffa9250472d43de931f565f684608462814cf8b4dbc06afc486181ff4e13",
-    "climes_current/replay_fixtures.json": "6070561bc5b2fe4d52fdf27902f9bab08c05a755a1f97705cbb30969fb675acc",
-    "climes_current/README.md": "b5be40a41df19100462f287b1f2af2f0200773d8fc77ce8fc931b86eb96ed28d",
-    "uppsala_tmax_1985_2026.csv": "05040f10b308307cec5ada670c1ae6d102fae60e3d78c2e06f5a59260c98296e",
-    "climes_current/validation/synthetic_harness_17.txt": "e695ea6ec8d489da3b15c9fb5e084dddde9a46cb3dcfd8cb5cc5158f4a9ada73",
-    "climes_current/validation/offline_38.txt": "9817401173d0546bb0e99af6dd05be7e7498e072850e0ba693918aa42a8aae3c",
-    "climes_current/validation/index_coverage.json": "b89c530b6c620ee3335142c360e748639b81f02adda35812664202280025fc41",
-    "climes_current/validation/integration_19.txt": "064659995813acbfce18771afbc9d63404a568493c96f4d779aa74bb40d11f66",
-    "knowledge/chroma.sqlite3": "86bc229f1b7452b51d2522ecf6115828f8e34a95425eda923cdd7b71003f2da0",
-    "climes_current/validation/live_r4_20261019/answers.md": "e6dc5685aebbc963981f04cb8fd40656f3b8b7a08ab7fc3a60cccd26e1c8721b",
-    "climes_current/validation/live_r4_20261019/acceptance.json": "55850111ba8b8158dee9f2950012827ec02107a6f8a3301e8bc660fcceb1663a",
-    "climes_current/validation/live_r4_20261019/verification.json": "c74738ec982460eeb174180d2246464acde036601e3aea038fc5997393153f53",
-    "climes_current/validation/live_r4_20261019/cloud_candidate_manifest.json": "af42b06930ae00a9447a65f4956307c0044789d281d179a54a4c56378dfc6bed",
-    "README_QWEN.md": "d3fcc4bd9b03b35f5e2e842e33051737366985082f19d258f3e00421e5a34c68",
-    "old/app.py": "ea6814c6b94331d39562c2733122a45128dc97148cef0141c68f59dd33d4164a",
-    "old/demo.py": "77ec3a4d7048ec1ba43f649dd0eaec53b53c4a25bc9261ee48313b6beafa515e",
-    "old/rag.py": "8be2f04b573728caf087c0c2e75b04ec3d877b32e3e6cb444ed1b68be261d5e1",
-    "old/uppsala.py": "c7f7f9595cbea380a16c35c764f695dbfb9fdd34f822f8cc24c01c85abd989d3",
-    "experiment/04_Qwen35_HeatLens_Demo.ipynb": "d59f937e6e555a3396f62717f510a75f103ad70412394cd62573f0338e6a9207"
-  },
-  "verification_scope": {
-    "cloud_run": "Recorded r4 candidate run on 19 October 2026; not a new cloud run of merged main",
-    "cases": 17,
-    "passed": 17,
-    "speech_file_generated": true,
-    "gradio_message_preprocessing_passed": true,
-    "evidence_directory": "climes_current/validation/live_r4_20261019",
-    "merged_main_component_comparison": "See validation/live_r4_20261019/verification.json",
-    "external_user_feedback": "Not recorded in this acceptance evidence"
-  },
-  "documentation_updated_after_cloud_run": true
+    "heatwave_stats.py": "9b918c70b5973c2b4c11c240fd64ddc54487bc1126a0390011d0aba8c03c4adf",
+    "climes_current/integrated_final.py": "be30f3b3880100c59c9911b48331047388fa3776c65e154fdb9b8bd450920161",
+    "climes_current/START.py": "d262286bcbdbdb4838cd2c9cf5785471ceeda5b4a2925958064999bc0eb4cd7c",
+    "climes_current/check_conversation.py": "43d7236e6243684caa6943057393c3b1b5ee729961e34518c72529583b66a4d9",
+    "climes_current/README.md": "22e809488c1412a1ef8b7632a9330897cd181de31b4c031cedc00b7583282e9c",
+    "climes_current/validation/conversation_r5_20261020/offline_38.txt": "b468dc63bd585cc8163fa2f7a928c0219b1fbd32cdcd146c32785c43e65cba8a",
+    "climes_current/validation/conversation_r5_20261020/integration_19.txt": "0c7e7bccdf870589aeeea7e0823716934427c95ff8c594782657e6eab02ea470",
+    "climes_current/validation/conversation_r5_20261020/conversation_25.txt": "0fd21f351aa7be3d106ee90e2a3a87af47fc1c18ea681696955d4e90c9f5cddb",
+    "climes_current/validation/conversation_r5_20261020/synthetic_harness_17.txt": "1fd50645d2cd904e008bb47f805b0b557561aeafc898c1b63526d761611f0295",
+    "climes_current/validation/conversation_r5_20261020/verification.json": "d1c0f2de6c5a69238e4c1048e3ea8efcf9572953ac3461aa8e595dade33c00fc"
+  }
 }

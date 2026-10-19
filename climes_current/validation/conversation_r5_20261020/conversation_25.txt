@@ -1,0 +1,31 @@
+test_above_is_not_at_least (__main__.ConversationChecks.test_above_is_not_at_least) ... ok
+test_acceptance_rejects_ignored_month_even_if_count_matches (__main__.ConversationChecks.test_acceptance_rejects_ignored_month_even_if_count_matches) ... ok
+test_auth_error_actionable_without_secret (__main__.ConversationChecks.test_auth_error_actionable_without_secret) ... WeatherMetro request unavailable: http_401
+ok
+test_can_we_have_does_not_guess_intent (__main__.ConversationChecks.test_can_we_have_does_not_guess_intent) ... ok
+test_cross_month_days_excluded (__main__.ConversationChecks.test_cross_month_days_excluded) ... ok
+test_different_years_never_join (__main__.ConversationChecks.test_different_years_never_join) ... ok
+test_generator_duplicate_keeps_conditions (__main__.ConversationChecks.test_generator_duplicate_keeps_conditions) ... ok
+test_hazard_context_outranks_generic_policy (__main__.ConversationChecks.test_hazard_context_outranks_generic_policy) ... ok
+test_healthcare_hypothetical_keeps_scenario_label (__main__.ConversationChecks.test_healthcare_hypothetical_keeps_scenario_label) ... ok
+test_healthcare_paraphrases (__main__.ConversationChecks.test_healthcare_paraphrases) ... ok
+test_healthcare_scope_disclosed (__main__.ConversationChecks.test_healthcare_scope_disclosed) ... ok
+test_invalid_scope (__main__.ConversationChecks.test_invalid_scope) ... ok
+test_july_display_states_scope (__main__.ConversationChecks.test_july_display_states_scope) ... ok
+test_july_independent_scalar_count (__main__.ConversationChecks.test_july_independent_scalar_count) ... ok
+test_keep_cool_no_weather (__main__.ConversationChecks.test_keep_cool_no_weather) ... ok
+test_known_counts_unchanged (__main__.ConversationChecks.test_known_counts_unchanged) ... ok
+test_missing_unit_clarifies (__main__.ConversationChecks.test_missing_unit_clarifies) ... ok
+test_month_passed_to_tool_contract (__main__.ConversationChecks.test_month_passed_to_tool_contract) ... ok
+test_next_july_not_a_fabricated_forecast (__main__.ConversationChecks.test_next_july_not_a_fabricated_forecast) ... ok
+test_no_invented_duration (__main__.ConversationChecks.test_no_invented_duration) ... ok
+test_policy_antecedent_preserved (__main__.ConversationChecks.test_policy_antecedent_preserved) ... ok
+test_policy_heading_removed_without_rewriting_sentence (__main__.ConversationChecks.test_policy_heading_removed_without_rewriting_sentence) ... ok
+test_real_index_policy_sentences_have_context (__main__.ConversationChecks.test_real_index_policy_sentences_have_context) ... ok
+test_unsupported_date_restrictions_not_ignored (__main__.ConversationChecks.test_unsupported_date_restrictions_not_ignored) ... ok
+test_word_duration_and_strict_comparison (__main__.ConversationChecks.test_word_duration_and_strict_comparison) ... ok
+
+----------------------------------------------------------------------
+Ran 25 tests in 0.170s
+
+OK
