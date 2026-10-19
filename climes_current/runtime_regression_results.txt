@@ -1,0 +1,10 @@
+test_actual_gradio_six_empty_content_shapes (__main__.RuntimeChecks.test_actual_gradio_six_empty_content_shapes) ... ok
+test_full_source_remains_valid_and_old_evidence_unchanged (__main__.RuntimeChecks.test_full_source_remains_valid_and_old_evidence_unchanged) ... ok
+test_missing_future_day_is_disclosed (__main__.RuntimeChecks.test_missing_future_day_is_disclosed) ... ok
+test_next_three_days_excludes_today_and_requests_extra_day (__main__.RuntimeChecks.test_next_three_days_excludes_today_and_requests_extra_day) ... ok
+test_notebook_running_event_loop_and_full_audio (__main__.RuntimeChecks.test_notebook_running_event_loop_and_full_audio) ... ok
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.177s
+
+OK

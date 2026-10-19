@@ -1,0 +1,24 @@
+test_bundled_series_and_independent_run_count (__main__.IntegrationChecks.test_bundled_series_and_independent_run_count) ... ok
+test_conditional_duration_route_and_celsius_conversion (__main__.IntegrationChecks.test_conditional_duration_route_and_celsius_conversion) ... ok
+test_conversational_answer_has_actions_without_dumping_pdf (__main__.IntegrationChecks.test_conversational_answer_has_actions_without_dumping_pdf) ... ok
+test_cover_and_reference_list_are_not_precautions (__main__.IntegrationChecks.test_cover_and_reference_list_are_not_precautions) ... ok
+test_exact_query_not_nearby_category (__main__.IntegrationChecks.test_exact_query_not_nearby_category) ... ok
+test_gaps_and_missing_temperatures_break_runs (__main__.IntegrationChecks.test_gaps_and_missing_temperatures_break_runs) ... ok
+test_healthcare_routing_and_unavailable_history (__main__.IntegrationChecks.test_healthcare_routing_and_unavailable_history) ... ok
+test_healthcare_truncated_fragments_are_not_displayed (__main__.IntegrationChecks.test_healthcare_truncated_fragments_are_not_displayed) ... ok
+test_history_route_without_weather_or_selector (__main__.IntegrationChecks.test_history_route_without_weather_or_selector) ... ok
+test_hypothetical_history_combines_with_excerpts (__main__.IntegrationChecks.test_hypothetical_history_combines_with_excerpts) ... ok
+test_invalid_inputs_and_unavailable_csv (__main__.IntegrationChecks.test_invalid_inputs_and_unavailable_csv) ... ok
+test_known_bad_screenshot_cannot_pass_acceptance (__main__.IntegrationChecks.test_known_bad_screenshot_cannot_pass_acceptance) ... ok
+test_local_and_healthcare_sources_are_retrievable (__main__.IntegrationChecks.test_local_and_healthcare_sources_are_retrievable) ... ok
+test_no_invented_duration_for_tomorrow (__main__.IntegrationChecks.test_no_invented_duration_for_tomorrow) ... ok
+test_one_action_is_not_sufficient (__main__.IntegrationChecks.test_one_action_is_not_sufficient) ... ok
+test_order_and_duplicate_dates (__main__.IntegrationChecks.test_order_and_duplicate_dates) ... ok
+test_pdf_wrap_and_full_diet_caveat_preserved (__main__.IntegrationChecks.test_pdf_wrap_and_full_diet_caveat_preserved) ... ok
+test_real_index_contains_usable_english_actions_for_all_hazards (__main__.IntegrationChecks.test_real_index_contains_usable_english_actions_for_all_hazards) ... ok
+test_short_history_uses_actual_query_and_count (__main__.IntegrationChecks.test_short_history_uses_actual_query_and_count) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.138s
+
+OK

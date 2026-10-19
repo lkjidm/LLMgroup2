@@ -1,0 +1,50 @@
+test_01_same_four_location_inputs (__main__.FixChecks.test_01_same_four_location_inputs) ... ok
+test_02_unicode_case_and_word_boundaries (__main__.FixChecks.test_02_unicode_case_and_word_boundaries) ... ok
+test_03_specific_longer_landmark (__main__.FixChecks.test_03_specific_longer_landmark) ... ok
+test_04_timeout_no_fake_values (__main__.FixChecks.test_04_timeout_no_fake_values) ... ok
+test_05_missing_fields_no_success (__main__.FixChecks.test_05_missing_fields_no_success) ... ok
+test_06_each_missing_or_null_current_field (__main__.FixChecks.test_06_each_missing_or_null_current_field) ... ok
+test_07_invalid_current_numbers (__main__.FixChecks.test_07_invalid_current_numbers) ... ok
+test_08_current_success_and_zero_values (__main__.FixChecks.test_08_current_success_and_zero_values) ... ok
+test_09_http_and_invalid_json (__main__.FixChecks.test_09_http_and_invalid_json) ... ok
+test_10_forecast_valid_aggregation (__main__.FixChecks.test_10_forecast_valid_aggregation) ... ok
+test_11_empty_forecast (__main__.FixChecks.test_11_empty_forecast) ... ok
+test_12_invalid_forecast_fields (__main__.FixChecks.test_12_invalid_forecast_fields) ... ok
+test_13_forecast_cache_distinguishes_days (__main__.FixChecks.test_13_forecast_cache_distinguishes_days) ... ok
+test_14_current_cache_label_and_coordinates (__main__.FixChecks.test_14_current_cache_label_and_coordinates) ... ok
+test_15_retry_after_error (__main__.FixChecks.test_15_retry_after_error) ... ok
+test_18_risk_rules_16_original_boundaries (__main__.FixChecks.test_18_risk_rules_16_original_boundaries) ... ok
+test_20_units_are_source_specific (__main__.FixChecks.test_20_units_are_source_specific) ... ok
+test_26_generic_heat_word_is_not_business (__main__.FixChecks.test_26_generic_heat_word_is_not_business) ... ok
+test_33_current_data_rendering_does_not_invent_interpretations (__main__.FixChecks.test_33_current_data_rendering_does_not_invent_interpretations) ... ok
+test_34_tomorrow_selection_uses_stockholm_date (__main__.FixChecks.test_34_tomorrow_selection_uses_stockholm_date) ... ok
+test_35_missing_tomorrow_is_not_fabricated (__main__.FixChecks.test_35_missing_tomorrow_is_not_fabricated) ... ok
+test_40_all_12_original_questions_route (__main__.FixChecks.test_40_all_12_original_questions_route) ... ok
+test_41_source_condition_cannot_be_rewritten_to_scenario (__main__.FixChecks.test_41_source_condition_cannot_be_rewritten_to_scenario) ... ok
+test_42_old_model_failures_never_enter_display_text (__main__.FixChecks.test_42_old_model_failures_never_enter_display_text) ... ok
+test_43_valid_model_choice_is_used_without_prose (__main__.FixChecks.test_43_valid_model_choice_is_used_without_prose) ... ok
+test_44_selector_failure_falls_back_to_source (__main__.FixChecks.test_44_selector_failure_falls_back_to_source) ... ok
+test_45_general_advice_does_not_fetch_weather (__main__.FixChecks.test_45_general_advice_does_not_fetch_weather) ... ok
+test_46_off_topic_never_calls_model_or_api (__main__.FixChecks.test_46_off_topic_never_calls_model_or_api) ... ok
+test_47_retrieval_filters_maps_duplicates_and_other_topics (__main__.FixChecks.test_47_retrieval_filters_maps_duplicates_and_other_topics) ... ok
+test_48_missing_retrieval_is_not_invented (__main__.FixChecks.test_48_missing_retrieval_is_not_invented) ... ok
+test_49_current_facts_ignore_injected_numbers (__main__.FixChecks.test_49_current_facts_ignore_injected_numbers) ... ok
+test_50_missing_weather_stops_chat_path (__main__.FixChecks.test_50_missing_weather_stops_chat_path) ... ok
+test_51_tts_failure_preserves_text (__main__.FixChecks.test_51_tts_failure_preserves_text) ... ok
+test_52_full_audio_and_unique_paths (__main__.FixChecks.test_52_full_audio_and_unique_paths) ... ok
+test_53_real_source_cold_and_flood_remain_verbatim (__main__.FixChecks.test_53_real_source_cold_and_flood_remain_verbatim) ... ok
+test_54_hypothetical_units_and_ambiguity (__main__.FixChecks.test_54_hypothetical_units_and_ambiguity) ... ok
+test_55_gradio_message_shape_and_empty_input (__main__.FixChecks.test_55_gradio_message_shape_and_empty_input) ... ok
+test_56_blank_submit_does_not_crash_or_repeat_previous_turn (__main__.FixChecks.test_56_blank_submit_does_not_crash_or_repeat_previous_turn) ... ok
+
+----------------------------------------------------------------------
+Ran 38 tests in 0.082s
+
+OK
+WeatherMetro API failure: TimeoutError
+WeatherMetro API failure: ValueError
+WeatherMetro API failure: ValueError
+WeatherMetro API failure: TimeoutError
+WeatherMetro API failure: TimeoutError
+
+Offline regression and archived-evidence replay passed. No live model or API was used.
