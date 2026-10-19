@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import requests
 import torch
+from heatwave_stats import historical_heatwave_stats
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import Chroma
 from transformers import (
@@ -261,9 +262,6 @@ def extract_params(user_text):
   temp = float(temp_match.group(1)) if temp_match else None
   return days, temp
 
-# =====================================================================
-# 4. bot response generation with streaming and audio output
-# =====================================================================
 def bot_response(message, history):
     # 1. extract user text from message (string, dict, or list)
     if isinstance(message, str):
@@ -280,6 +278,16 @@ def bot_response(message, history):
             user_text = str(first_item).strip()
     else:
         user_text = str(message).strip()
+
+    # Hypothetical heatwave query → historical frequency (deterministic)
+    days_m = re.search(r'(\d+)\s*(?:days?|dygn)', user_text, re.I)
+    temp_m = re.search(r'(\d+(?:\.\d+)?)\s*(?:°\s*C|℃|degrees?)', user_text, re.I)
+    hist_stats = None
+    if days_m and temp_m:
+        try:
+            hist_stats = historical_heatwave_stats(int(days_m.group(1)), float(temp_m.group(1)))
+        except Exception:
+            hist_stats = None
 
     # 2. extract location coordinates from user text
     loc_info = extract_location_coords(user_text)
@@ -350,7 +358,7 @@ def bot_response(message, history):
             f"state that conditions are currently normal and present safety measures strictly as PRECAUTIONARY / HYPOTHETICAL advice."
         )
 
-    # 7. concatenate Prompt
+        # 7. concatenate Prompt
     prompt_sections = [
         f"### REALTIME STATUS EVALUATION (GUARDRAIL)\n{extreme_weather_status}",
         f"### CURRENT USER QUERY\n{user_text}",
@@ -373,13 +381,18 @@ def bot_response(message, history):
             f"- Relative Humidity: {humidity_val}% | Wind Speed: {wind_speed if wind_speed is not None else 'N/A'} km/h | Precip: {precip} mm"
         )
 
+    # Historical frequency (only when user asked a days+temp hypothetical)
+    if hist_stats and "error" not in hist_stats:
+        prompt_sections.append(
+            "### HISTORICAL FREQUENCY (DETERMINISTIC, SMHI 1985–2026)\n"
+            + str(hist_stats)
+        )
+
     # RAG context
     if rag_context:
         prompt_sections.append(
             f"### LOCAL MANUAL CONTEXT (RAG)\n```text\n{rag_context}\n```"
         )
-
-    
 
     current_instruction = "\n\n".join(prompt_sections)
 
