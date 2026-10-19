@@ -1,3 +1,5 @@
+> **Archived development documentation (14 October 2026).** This describes the earlier HeatLens/Qwen3.5-4B experiment, not the final CLIMES application or its evaluation. For the current Qwen3.5-2B application, use [readme.md](readme.md) and run `integrated.py`. Historical paths and pending work below refer to that earlier experiment.
+
 # HeatLens: Qwen3.5 Integration
 
 This component develops the model and application portion of the shared HeatLens project. It uses Qwen3.5-4B on a Colab GPU to extract a temperature scenario, validates and routes the output in Python, executes a historical weather comparison, and generates an explanation from the tool result.
