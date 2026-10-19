@@ -50,8 +50,7 @@ python -m pip install -r requirements.txt
 python integrated.py
 ```
 
-`integrated.py` launches `climes_current/integrated_final.py`. API keys should not be committed to the repository.
-
+`integrated.py` launches `climes_current/integrated_final.py`. 
 ---
 
 ## 🧪 Evaluation and Limitations
