@@ -262,6 +262,9 @@ def extract_params(user_text):
   temp = float(temp_match.group(1)) if temp_match else None
   return days, temp
 
+# =====================================================================
+# 4. bot response generation with streaming and audio output
+# =====================================================================
 def bot_response(message, history):
     # 1. extract user text from message (string, dict, or list)
     if isinstance(message, str):
@@ -359,7 +362,7 @@ def bot_response(message, history):
             f"state that conditions are currently normal and present safety measures strictly as PRECAUTIONARY / HYPOTHETICAL advice."
         )
 
-        # 7. concatenate Prompt
+    # 7. concatenate Prompt
     prompt_sections = [
         f"### REALTIME STATUS EVALUATION (GUARDRAIL)\n{extreme_weather_status}",
         f"### CURRENT USER QUERY\n{user_text}",
