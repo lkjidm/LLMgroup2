@@ -1,7 +1,13 @@
-# Revised code entry point
+# Combined implementation
 
-Run `climes_current/integrated_final.py` from the repository root.
-See the root `readme.md` for API-key configuration, dependencies, tests and limits.
+The canonical repository command is `python integrated.py`; it launches the
+implementation in this folder. See the root `readme.md` for data sources,
+historical counting semantics, setup, and live acceptance instructions.
 
-The model is the base Qwen3.5-2B. No model weights were trained in this update.
-Do not start a second model copy while an old one is still occupying the GPU.
+Current offline results are in `validation/`; `version_manifest.json` identifies
+the combined candidate and its component hashes. Older result files in this
+folder are retained as historical evidence and apply to earlier code revisions.
+
+Run `START.main(project=...)` for the 17-case live batch, evidence export and UI.
+The live batch must be rerun after integration; old PR #3 passes do not certify
+the newly added knowledge index, healthcare route or historical functionality.

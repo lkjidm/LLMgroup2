@@ -1,0 +1,17 @@
+{
+  "method": "Read-only SQLite metadata inspection; not a live semantic retrieval test",
+  "source_chunk_counts": {
+    "knowledge\\30012.pdf": 42,
+    "knowledge\\30059.pdf": 23,
+    "knowledge\\30076.pdf": 73,
+    "knowledge\\30125.pdf": 37,
+    "knowledge\\30126.pdf": 45,
+    "knowledge\\30127.pdf": 37,
+    "knowledge\\CLIMES_Healthcare_preparedness.pdf": 36,
+    "knowledge\\fema_flood-hazard-info-sheet.pdf": 12,
+    "knowledge\\ready.gov_extreme-heat_hazard-info-sheet.pdf": 9,
+    "knowledge\\ready.gov_winter-storm_hazard-info-sheet.pdf": 8,
+    "knowledge\\ready_extreme-heat-partner-toolkit_07162026.pdf": 23,
+    "knowledge\\uppsala-tatort-a1.pdf": 53
+  }
+}

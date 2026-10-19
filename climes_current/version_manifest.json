@@ -1,27 +1,47 @@
 {
+  "candidate": "CLIMES combined candidate r4 2026-10-19",
+  "superseded_live_result": "First combined run reported 17/17 structural passes but manual inspection found cover/reference-list excerpts instead of resident precautions. It is not semantic acceptance.",
+  "main_commit": "bc8b70bba4e91df284dcf7ce42a870efdc4967d8",
+  "pr3_commit": "41c867e3417044ceaa6a3e8e3fa7f6543d9b3f7d",
   "base_model": "Qwen/Qwen3.5-2B",
-  "model_weight_training_in_this_revision": false,
-  "source_verified_candidate_sha256": "8e330c75af247db140e25c939b6c4470fa382fc0da07c45ea61615cc8fe25ebb",
-  "publication_candidate_sha256": "d50035a53b905860501639ca12eba6a9084fc25064642e47a6719a25931e65dc",
-  "change_from_verified_candidate": "Read weather API key from environment; application logic unchanged.",
-  "historical_cloud_verification": "Recorded targeted runtime and browser cases; not a complete rerun of the revised START.py.",
-  "publication_checks": {
+  "model_weights_changed": false,
+  "canonical_entry": "integrated.py -> climes_current/integrated_final.py",
+  "changes": [
+    "Unified root launcher and fixed implementation",
+    "Audience-appropriate English resident action extraction and substantive CLIMES healthcare retrieval",
+    "Exact historical threshold/duration; missing dates break runs",
+    "17-case live runner with component hashes; notebook points to unified code"
+  ],
+  "local_checks": {
     "offline_regression_methods_passed": 38,
-    "acceptance_harness": "passed with substitutes",
-    "live_model_api_ui_rerun": false
+    "integration_test_methods_passed": 19,
+    "synthetic_harness_cases_passed": 17
   },
+  "live_model_api_retrieval_speech_ui_rerun": false,
+  "limitations": [
+    "Local harness uses test doubles; it is not live acceptance",
+    "English resident advice uses verified leaflet sentences; Swedish municipal manuals are retained but not substituted for English precautions",
+    "Historical rates are descriptive, not forecasts or official warnings"
+  ],
   "files": {
-    "readme.md": "bf6b956dddc3a1ddcfff9c9be7b7d9e3e72f409251aa64301214ba6da00dba7b",
-    "climes_current/integrated_final.py": "d50035a53b905860501639ca12eba6a9084fc25064642e47a6719a25931e65dc",
-    "climes_current/publication_harness_checks.txt": "fac01f86280ce1001d7091eaab8f32e5eae628148d1137e1f05610073b334b57",
-    "climes_current/check_final.py": "073aa6af3879b6b69f68efd0b95c12a9e2ddc43423abffa875ecc785ad87ed87",
-    "climes_current/check_acceptance_harness.py": "25398bbc5ed5dfd1d1946042e2ff9e5b92d7c1bc583a0e97eb9fec8213ed2c4e",
-    "climes_current/publication_offline_checks.txt": "1672f4f94725c5103b566818ff17d85335ac1f24a5bc43dad56ddc927a1b1a62",
-    "climes_current/START.py": "69ccd30ba70f6120f0fc84ba6cca717cabef874f961cac265d1dd7d710aedfc0",
-    "climes_current/README.md": "be2e38316762d650c3b2b03605f82dfd0c5e11fdc8eddb161a787c81ecec4c34",
-    "climes_current/runtime_regression_results.txt": "9054ab66716f91f9d949ad7db140044ecc36a1261350ffc925ba800b1d9093f9",
-    "climes_current/harness_check_results.txt": "312898ffee62b6427b8bd78e8e0ee4b3111329351b9db033d6046b5da38bab15",
+    "integrated.py": "428d9c6a54d9034b7903b5404d6e42e8d9dee715abefeb173d496d769b382ada",
+    "heatwave_stats.py": "58910d909fead20bdead84325e1ec2910233c7ee54b248fa648e9b76319b8da6",
+    "requirements.txt": "db3a4b06606f550b7f1a85233aa88a56881f6c04da35ff0939450c95e0aaa92d",
+    "readme.md": "9ca5cc5d82ff5d7552e855589492bacf2c68160183de224ca425eaadeae2b12a",
+    ".gitignore": "6bd9da980c37d44e59d3428df7b8878d8c1aeb21cdff3aaa6b802655f5e51387",
+    "test.ipynb": "239649f7bbb53ae82b2c140dce01c4e704a5aaf76d995a09932387ebb291ceac",
+    "climes_current/integrated_final.py": "2cac70585c43919535551342fc131ab0474aff6392c4cc2770c7f8587a2f9a67",
+    "climes_current/START.py": "4e9ccba9ccc920c4a7ec241c0e06a12c7a9a799a8538e6f2facc9ae9041278a3",
+    "climes_current/check_final.py": "1a59684ba05b7fac836a5c69f9fc1e3b43f6b55c6dd04d9eb6a7c6834b2de8f2",
+    "climes_current/check_acceptance_harness.py": "cc8d6510620f5bd5d10972a118379a97c15a4d1da2f16ff1a544fb1af085c368",
+    "climes_current/check_integration.py": "7c06ffa9250472d43de931f565f684608462814cf8b4dbc06afc486181ff4e13",
     "climes_current/replay_fixtures.json": "6070561bc5b2fe4d52fdf27902f9bab08c05a755a1f97705cbb30969fb675acc",
-    "climes_current/offline_check_results.txt": "32142ca07bbed1345083ae1b808d92d2e603f377f7601e53c0b4b36e51fe3ae6"
+    "climes_current/README.md": "5dfd461f37d3506ad120c54be29cec96f2780c97216692e7efd1af446dbf57e1",
+    "uppsala_tmax_1985_2026.csv": "05040f10b308307cec5ada670c1ae6d102fae60e3d78c2e06f5a59260c98296e",
+    "climes_current/validation/synthetic_harness_17.txt": "e695ea6ec8d489da3b15c9fb5e084dddde9a46cb3dcfd8cb5cc5158f4a9ada73",
+    "climes_current/validation/offline_38.txt": "9817401173d0546bb0e99af6dd05be7e7498e072850e0ba693918aa42a8aae3c",
+    "climes_current/validation/index_coverage.json": "b89c530b6c620ee3335142c360e748639b81f02adda35812664202280025fc41",
+    "climes_current/validation/integration_19.txt": "064659995813acbfce18771afbc9d63404a568493c96f4d779aa74bb40d11f66",
+    "knowledge/chroma.sqlite3": "86bc229f1b7452b51d2522ecf6115828f8e34a95425eda923cdd7b71003f2da0"
   }
 }

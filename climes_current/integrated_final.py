@@ -416,6 +416,10 @@ def classify_request(user_text):
     if re.search(r'\b(?:poem|poetry|spaceship|recipe|song|fiction|write code|programming)\b', text):
         return 'unsupported', None
     scenario_marker = re.search(r'\b(?:suppose|hypothetical|imagine|assume)\b|\bwhat\s+if\b|\bif\s+(?:it|the temperature)\s+(?:is|were|was|reaches)\b', text)
+    if re.search(r'\bif\b', text) and re.search(r'\d\s*°\s*[cf]\b|degrees?\s+(?:celsius|fahrenheit)\b', text):
+        scenario_marker = True
+    historical = bool(re.search(r'\b(?:historical|historically|how often|frequency|past events)\b', text))
+    healthcare = bool(re.search(r'\b(?:healthcare|hospitals?|health systems?|health care)\b', text))
     topic = None
     for name, words in [
         ('heat', r'\b(?:heat|heatwave|hot|overheat\w*)\b'),
@@ -425,7 +429,7 @@ def classify_request(user_text):
         if re.search(words, text):
             topic = name
             break
-    if scenario_marker:
+    if scenario_marker or historical:
         matches = re.findall(r'(?<![\w.])(-?\d+(?:\.\d+)?)\s*(?:°\s*([cf])\b|degrees?\s+(celsius|fahrenheit)\b)', text.replace('−', '-'))
         if len(matches) != 1:
             return 'clarify_scenario', None
@@ -435,19 +439,32 @@ def classify_request(user_text):
             value = (value - 32) * 5 / 9
         if not math.isfinite(value):
             return 'clarify_scenario', None
+        duration = re.findall(r'(?<![\w.\-])([0-9]+)\s*(?:consecutive\s+)?days?\b', text)
+        invalid_duration = re.search(r'(?<!\w)-\d+\s*(?:consecutive\s+)?days?\b|\d+\.\d+\s*(?:consecutive\s+)?days?\b', text)
+        if invalid_duration or len(duration) > 1 or (duration and int(duration[0]) < 1):
+            return 'clarify_history', None
+        if historical:
+            if not duration:
+                return 'clarify_history', None
+            return 'historical', {'temperature_c': value, 'duration_days': int(duration[0]), 'topic': 'heat'}
         topic = 'heat' if value >= 27 else 'cold' if value <= -15 else topic
         if topic is None:
             return 'unsupported_scenario', {'temperature_c': value}
-        return 'hypothetical', {'temperature_c': value, 'topic': topic}
+        detail = {'temperature_c': value, 'topic': topic}
+        if duration:
+            detail['duration_days'] = int(duration[0])
+        if healthcare:
+            detail['healthcare'] = True
+        return 'hypothetical', detail
     advice = bool(re.search(r'\b(?:precautions?|advice|safety|protect|prepare|preparedness|guidance)\b', text))
     if topic and advice:
-        return 'advice', {'topic': topic}
+        return 'advice', {'topic': topic, **({'healthcare': True} if healthcare else {})}
     if topic and re.search(r'\b(?:now|current|currently|confirm|right now|today)\b', text):
         return 'risk_status', {'topic': topic}
     if is_direct_weather_query(text):
         return 'weather', None
     if topic:
-        return 'advice', {'topic': topic}
+        return 'advice', {'topic': topic, **({'healthcare': True} if healthcare else {})}
     return 'unsupported', None
 
 
@@ -459,7 +476,67 @@ def manual_for_topic(topic):
     }.get(topic)
 
 
-def retrieve_manual_passages(topic, top_k=3):
+def resident_action_sentences(text, topic):
+    # Complete sentences checked against the bundled FEMA leaflets. Return only
+    # sentences actually present in a retrieved passage, never a canned answer.
+    # Preserve hyphenated words across PDF line wraps, then normalise whitespace.
+    clean = ' '.join(re.sub(r'(?<=\w)-\s*\n\s*(?=\w)', '-', text).split())
+    anchors = {
+        'heat': [
+            'Find air conditioning, if possible.', 'Avoid strenuous activities.',
+            'Wear light clothing.', 'Check on family members and neighbors.',
+            'Drink plenty of fluids.', 'Never leave people or pets in a closed car.',
+            'Find places in your community where you can go to get cool.',
+            'Never leave a child, adult, or animal alone inside a vehicle on a warm day.',
+            'Find places with air conditioning.', 'If you’re outside, find shade.',
+            'Wear a hat wide enough to protect your face.',
+            'Wear loose, lightweight, light-colored clothing.',
+            'Drink plenty of fluids to stay hydrated. If you or someone you care for is on a special diet, ask a doctor what would be best.',
+            'Avoid high-energy activities.',
+            'Check yourself, family members, and neighbors for signs of heat-related illness.',
+        ],
+        'cold': [
+            'Stay indoors and dress warmly.', 'Prepare for power outages.',
+            'Use generators outside only.', 'Check on neighbors.',
+            'Gather supplies in case you need to stay home for several days without power. Keep in mind each person’s specific needs, including medication.',
+            'Limit your time outside.',
+            'If you need to go outside, wear layers of warm clothing.',
+            'Only use generators and grills outdoors and away from windows.',
+            'Never heat your home with a gas stovetop or oven.',
+            'Avoid overexertion when shoveling snow.',
+        ],
+        'flood': [
+            'Follow instructions from local officials.',
+            'Plan to evacuate AND be ready to shelter in place.',
+            'Do not walk, swim or drive through floodwaters.',
+            'Move to higher ground or a higher floor to stay above rising floodwaters. Do not become trapped in a basement or attic.',
+            'Develop an evacuation plan. Consider where you will go and how you will get there. Practice your evacuation route.',
+            'Gather enough food, water and emergency supplies to last you several days. Consider everyone’s specific needs, including medication.',
+            'Do not attempt to cross floodwaters.', 'Do not drive through floodwaters.',
+            'Pay attention to weather reports and local news updates and stay alert for potential signs of flash flooding.',
+            'Follow the instructions in all emergency alert notifications.',
+            'Evacuate immediately when ordered to.',
+        ],
+    }
+    return [sentence for sentence in anchors.get(topic, []) if sentence in clean]
+
+
+def is_substantive_policy_text(text):
+    clean = ' '.join(text.split())
+    if len(clean.split()) < 25 or re.search(r'\bKey References\b', clean, re.IGNORECASE):
+        return False
+    return bool(re.search(r'\b(?:must|should|requires?|recommendations?|predefined operational measures|preparedness training|surge protocols|adequate staffing|strategic reserves)\b', clean, re.IGNORECASE))
+
+
+def complete_policy_sentences(text):
+    clean = ' '.join(re.sub(r'(?<=\w)-\s*\n\s*(?=\w)', '-', text).split())
+    sentences = re.findall(r'(?:^|(?<=[.!?])\s+)([A-Z][^.!?]*[.!?])', clean)
+    return [sentence for sentence in sentences if len(sentence.split()) >= 8
+            and re.search(r'\b(?:must|should|requires?|predefined operational measures|preparedness training|surge protocols|adequate staffing|strategic reserves)\b', sentence, re.IGNORECASE)
+            and not re.search(r'\b(?:CONCLUSION|RECOMMENDATIONS|Policy Brief|References)\b', sentence)]
+
+
+def retrieve_manual_passages(topic, top_k=3, healthcare=False):
     if not os.path.exists('./knowledge'):
         return []
     queries = {
@@ -467,24 +544,51 @@ def retrieve_manual_passages(topic, top_k=3):
         'cold': 'What precautions should residents take during extreme cold in Uppsala? Answer in English.',
         'flood': 'What precautions should residents take during heavy rain or flooding in Uppsala? Answer in English.',
     }
-    wanted = manual_for_topic(topic)
-    if not wanted:
+    local_sources = {'heat': ['30012.pdf'], 'cold': ['30059.pdf', '30125.pdf', '30126.pdf'],
+                     'flood': ['30076.pdf']}
+    if topic not in local_sources or top_k < 1:
         return []
+    policy = (['CLIMES_Healthcare_preparedness.pdf'],
+              f'Healthcare preparedness recommendations staffing surge protocols supplies {topic} extreme weather')
+    # English resident questions require resident actions in English. Municipal
+    # handbook titles/reference lists cannot displace actionable leaflet text.
+    # The CLIMES healthcare policy remains available for its intended audience.
+    groups = [policy] if healthcare else [([manual_for_topic(topic)], queries[topic])]
     store = Chroma(persist_directory='./knowledge', embedding_function=embeddings)
-    results = store.similarity_search_with_relevance_scores(queries[topic], k=12)
     passages, seen = [], set()
-    for doc, score in results:
-        source = manual_source_name(doc.metadata.get('source', ''))
-        raw = doc.page_content
-        fingerprint = ' '.join(raw.split())
-        if source.casefold() != wanted or not is_weather_number(score) or score < 0.35 or not fingerprint or fingerprint in seen:
-            continue
-        seen.add(fingerprint)
-        passages.append({
-            'id': f'P{len(passages) + 1}', 'source': source,
-            'page': doc.metadata.get('page'), 'score': float(score),
-            'raw_text': raw, 'text': normalize_manual_units(raw, source),
-        })
+    for names, query in groups:
+        variants = [variant for name in names for variant in (name, 'knowledge/' + name, 'knowledge\\' + name)]
+        results = store.similarity_search_with_relevance_scores(
+            query, k=12, filter={'source': {'$in': variants}})
+        eligible = []
+        for doc, score in results:
+            source = manual_source_name(doc.metadata.get('source', ''))
+            raw = doc.page_content
+            fingerprint = ' '.join(raw.split())
+            if source.casefold() not in {name.casefold() for name in names} or not is_weather_number(score) or score < 0.35 or not fingerprint or fingerprint in seen:
+                continue
+            actions = resident_action_sentences(raw, topic) if not healthcare else []
+            if healthcare:
+                sentences = complete_policy_sentences(raw)
+                if not sentences:
+                    continue
+                display = '\n'.join(sentences)
+            else:
+                if not actions:
+                    continue
+                display = '\n'.join(actions)
+            seen.add(fingerprint)
+            eligible.append((doc, score, source, raw, display, len(actions)))
+        # Coverage of usable precautions outranks a title's semantic similarity.
+        for doc, score, source, raw, display, action_count in sorted(eligible, key=lambda p: (p[5], p[1]), reverse=True):
+            passages.append({
+                'id': f'P{len(passages) + 1}', 'source': source,
+                'page': doc.metadata.get('page'), 'score': float(score),
+                'raw_text': raw, 'text': normalize_manual_units(display, source),
+                'action_count': action_count, 'audience': 'healthcare' if healthcare else 'residents',
+            })
+            if len(passages) >= top_k:
+                break
         if len(passages) >= top_k:
             break
     return passages
@@ -523,14 +627,76 @@ def select_passages(question, passages):
         if not isinstance(ids, list) or not 1 <= len(ids) <= 2 or any(not isinstance(i, str) or i not in allowed for i in ids):
             raise ValueError('invalid passage IDs')
         ids = list(dict.fromkeys(ids))
-        return [allowed[i] for i in ids], 'model_selection'
+        selected = [allowed[i] for i in ids]
+        # A valid ID alone does not establish that the question was answered.
+        if passages[0].get('audience') == 'residents':
+            actions = {line for p in selected for line in p['text'].splitlines()}
+            if len(actions) < 2:
+                for candidate in passages:
+                    if candidate not in selected:
+                        selected.append(candidate)
+                        actions.update(candidate['text'].splitlines())
+                    if len(actions) >= 2:
+                        break
+            if len(actions) < 2:
+                return [], 'insufficient_actions'
+        return selected, 'model_selection'
     except Exception as exc:
         emit_event('selector_fallback', error_type=type(exc).__name__)
         # A visible source-grounded fallback cannot introduce model-written facts.
-        return passages[:2], 'retrieval_fallback'
+        selected = passages[:2]
+        if passages[0].get('audience') == 'residents' and len({line for p in selected for line in p['text'].splitlines()}) < 2:
+            return [], 'insufficient_actions'
+        return selected, 'retrieval_fallback'
+
+
+def render_conversational_guidance(location, topic, selected, scenario=None):
+    labels = {'heat': 'hot weather', 'cold': 'very cold weather', 'flood': 'heavy rain or flooding'}
+    healthcare = selected[0].get('audience') == 'healthcare'
+    if scenario is not None:
+        duration = scenario.get('duration_days')
+        timing = f' for {duration} days' if duration else ''
+        opening = f'For your assumed {scenario["temperature_c"]:g}°C{timing} in {location["name"]}, here are some practical precautions.'
+        context = 'This is a hypothetical scenario, not a confirmed forecast.'
+    else:
+        opening = f'Here are some practical precautions for {labels[topic]} in {location["name"]}.'
+        context = 'These are general precautions; I have not confirmed a current event.'
+    if healthcare:
+        opening = f'For healthcare services preparing for {labels[topic]} in {location["name"]}, the CLIMES brief highlights these priorities.'
+    actions, sources = [], []
+    names = {
+        'ready.gov_extreme-heat_hazard-info-sheet.pdf': 'FEMA / Ready.gov, Extreme Heat',
+        'ready.gov_winter-storm_hazard-info-sheet.pdf': 'FEMA / Ready.gov, Winter Storm',
+        'fema_flood-hazard-info-sheet.pdf': 'FEMA, Flood',
+        'CLIMES_Healthcare_preparedness.pdf': 'CLIMES, Healthcare Preparedness',
+    }
+    for passage in selected:
+        for line in passage['text'].splitlines():
+            if line.strip() and line.strip() not in actions:
+                actions.append(line.strip())
+        page = passage.get('page')
+        label = names.get(passage['source'], passage['source'])
+        if isinstance(page, int):
+            label += f', p. {page + 1}'
+        if label not in sources:
+            sources.append(label)
+    # Keep full sentences and their conditions; do not paraphrase numbers or
+    # use the model to invent new advice. Source passages remain in the log.
+    lines = [opening, context, '\n'.join('- ' + action for action in actions)]
+    if healthcare:
+        lines.append('This is healthcare-system preparedness, not personalised resident guidance.')
+    else:
+        lines.append('Source: ' + '; '.join(sources) + '. These US leaflets provide general guidance and are not Swedish official advice.')
+    if healthcare:
+        lines.append('Source: ' + '; '.join(sources) + '.')
+    return '\n\n'.join(lines)
 
 
 def render_manual_answer(location, topic, selected, scenario=None):
+    if selected and all(p.get('audience') in {'residents', 'healthcare'} for p in selected):
+        return render_conversational_guidance(location, topic, selected, scenario)
+    # Retain an explicit excerpt view for archived evidence without verified
+    # audience/action metadata. Production retrieval uses the renderer above.
     labels = {'heat': 'extreme heat', 'cold': 'extreme cold', 'flood': 'heavy rain or flooding'}
     if scenario is not None:
         temperature = scenario['temperature_c']
@@ -544,11 +710,52 @@ def render_manual_answer(location, topic, selected, scenario=None):
         return '\n\n'.join(lines)
     lines.append('The following are source excerpts. Any conditions or thresholds in them remain part of the source; they are not automatically instructions for the assumed temperature.')
     for passage in selected:
-        lines.append(f'**Source: {passage["source"]}**\n\n' + '\n'.join('> ' + line for line in passage['text'].splitlines()))
+        page = passage.get('page')
+        page_label = f', PDF page {page + 1}' if isinstance(page, int) else ''
+        lines.append(f'**Source: {passage["source"]}{page_label}**\n\n' + '\n'.join('> ' + line for line in passage['text'].splitlines()))
     if any('95°F (35°C)' in p['text'] for p in selected):
         lines.append('Unit clarification added for the US heat leaflet: 95°F equals 35°C. This is not a new universal safety threshold.')
-    lines.append('These English-language US manuals may not fully match Swedish local conditions or individual circumstances.')
+    if any(p['source'] in {'30012.pdf', '30059.pdf', '30076.pdf', '30125.pdf', '30126.pdf'} for p in selected):
+        lines.append('Swedish manual excerpts are retained in their original language; no automatic translation is presented.')
+    if any(p['source'] == 'CLIMES_Healthcare_preparedness.pdf' for p in selected):
+        lines.append('The CLIMES policy brief concerns healthcare preparedness; it is not personalised resident guidance.')
+    if any(p['source'] == manual_for_topic(topic) for p in selected):
+        lines.append('These English-language US manuals may not fully match Swedish local conditions or individual circumstances.')
     return '\n\n'.join(lines)
+
+
+def get_historical_context(detail):
+    try:
+        from heatwave_stats import historical_heatwave_stats
+        result = historical_heatwave_stats(detail['duration_days'], detail['temperature_c'])
+    except Exception as exc:
+        result = {'error': 'Historical observations unavailable', 'reason': type(exc).__name__}
+    emit_event('historical_tool', result=result)
+    return result
+
+
+def format_historical_reply(result, location):
+    if result.get('error'):
+        return 'I could not access valid historical temperature records, so I cannot say how often this occurred.'
+    small_numbers = {1: 'one', 2: 'two', 3: 'three', 4: 'four', 5: 'five',
+                     6: 'six', 7: 'seven', 8: 'eight', 9: 'nine', 10: 'ten'}
+    count, days = result['historical_count'], result['query_days']
+    period = result['period'].split(' to ')
+    years = f'{period[0][:4]}–{period[-1][:4]}'
+    duration = small_numbers.get(days, str(days))
+    condition = (f'daily maximum temperatures of at least {result["query_temp"]:g}°C '
+                 f'for at least {duration} consecutive ' + ('day' if days == 1 else 'days'))
+    if count == 0:
+        finding = f'no matching runs were found with {condition}'
+    elif count == 1:
+        finding = f'there was one separate run with {condition}'
+    else:
+        finding = f'there were {small_numbers.get(count, str(count))} separate runs with {condition}'
+    # Full dates, station, gaps, counting method and rate remain in the logged
+    # historical_tool result, rather than being repeated in every user reply.
+    return (f'In the bundled Uppsala station records for {years}, {finding}. '
+            'This describes the available past observations; it does not determine '
+            'the health risk or predict a future event.')
 
 
 def format_risk_reply(weather, topic):
@@ -571,6 +778,8 @@ def build_answer(user_text):
         return 'I can help with Uppsala weather, forecasts, and source-based preparedness for heat, cold, or flooding. I cannot complete unrelated requests.'
     if route == 'clarify_scenario':
         return 'Please specify one hypothetical temperature with an explicit °C or °F unit, and the weather hazard you want to discuss.'
+    if route == 'clarify_history':
+        return 'Please specify one temperature with an explicit °C or °F unit and one positive whole number of consecutive days for the historical comparison.'
     if route == 'unsupported_scenario':
         return 'Please specify the weather hazard for this hypothetical temperature, such as extreme heat, extreme cold, or flooding.'
     if route in {'weather', 'risk_status'}:
@@ -585,16 +794,22 @@ def build_answer(user_text):
         if not location['found']:
             answer = 'No supported named location was recognized; the location defaults to Uppsala city center.\n\n' + answer
         return answer
+    if route == 'historical':
+        return format_historical_reply(get_historical_context(detail), location)
     topic = detail['topic']
     try:
-        passages = retrieve_manual_passages(topic)
+        passages = (retrieve_manual_passages(topic, healthcare=True) if detail.get('healthcare')
+                    else retrieve_manual_passages(topic))
     except Exception as exc:
         passages = []
         emit_event('retrieval_error', error_type=type(exc).__name__)
     emit_event('retrieval', topic=topic, passages=passages)
     selected, method = select_passages(user_text, passages)
     emit_event('evidence_selection', method=method, selected_ids=[p['id'] for p in selected])
-    return render_manual_answer(location, topic, selected, detail if route == 'hypothetical' else None)
+    answer = render_manual_answer(location, topic, selected, detail if route == 'hypothetical' else None)
+    if route == 'hypothetical' and topic == 'heat' and detail.get('duration_days'):
+        answer += '\n\n' + format_historical_reply(get_historical_context(detail), location)
+    return answer
 
 
 def bot_response(message, history):
@@ -656,4 +871,3 @@ with gr.Blocks(title="CLIMES-Monitor: Uppsala Weather & Health") as demo:
 
 if __name__ == "__main__":
   demo.launch(share=True, debug=True)
-
