@@ -283,9 +283,10 @@ def bot_response(message, history):
     days_m = re.search(r'(\d+)\s*(?:days?|dygn)', user_text, re.I)
     temp_m = re.search(r'(\d+(?:\.\d+)?)\s*(?:°\s*C|℃|degrees?)', user_text, re.I)
     hist_stats = None
-    if days_m and temp_m:
+    if temp_m:
+        days = int(days_m.group(1)) if days_m else 3   # default to 3 days if user only says a temperature
         try:
-            hist_stats = historical_heatwave_stats(int(days_m.group(1)), float(temp_m.group(1)))
+            hist_stats = historical_heatwave_stats(days, float(temp_m.group(1)))
         except Exception:
             hist_stats = None
 
