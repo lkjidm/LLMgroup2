@@ -192,7 +192,7 @@ def extract_scenario(question):
 def route_extraction(raw_text):
     obj = json.loads(raw_text)
 
-    # 缺少必要参数时，应用强制进入澄清流程
+    # Require clarification when mandatory parameters are missing
     if (
         isinstance(obj, dict)
         and set(obj) == {"action", "days", "temperature", "message"}
@@ -212,9 +212,9 @@ def route_extraction(raw_text):
 
 # %%
 for record in records:
-    print("\n题目：", record["id"])
-    print("模型原始输出：", record["raw_output"])
-    print("程序路由结果：", route_extraction(record["raw_output"]))
+    print("\nTest case:", record["id"])
+    print("Raw model output:", record["raw_output"])
+    print("Application routing result:", route_extraction(record["raw_output"]))
 
 # %%
 new_questions = [
@@ -229,14 +229,14 @@ for question in new_questions:
     raw = qwen_generate(EXTRACTION_PROMPT, question)
     routed = route_extraction(raw)
 
-    print("\n问题：", question)
-    print("模型原始输出：", raw)
-    print("程序路由结果：", routed)
+    print("\nQuestion:", question)
+    print("Raw model output:", raw)
+    print("Application routing result:", routed)
 
     assert routed["action"] == "clarify", \
-        "缺失信息没有进入澄清流程，需要继续检查"
+        "Missing information did not trigger clarification; further investigation is required"
 
-print("\n两道新问题均进入澄清流程。")
+print("\nBoth new questions triggered clarification.")
 
 # %%
 from google.colab import files
@@ -246,7 +246,7 @@ uploaded = files.upload()
 import json
 import importlib.util
 
-# 加载实际上传的 Python 文件
+# Load the uploaded Python module
 spec = importlib.util.spec_from_file_location(
     "heatlens_weather_tool",
     "1heatlens_weather_tool.py",
@@ -257,15 +257,15 @@ spec.loader.exec_module(weather_module)
 load_weather_data = weather_module.load_weather_data
 heatwave_risk_tool = weather_module.heatwave_risk_tool
 
-# 使用刚上传的 CSV
+# Use the uploaded CSV
 metadata = load_weather_data(
     "uppsala_tmax_1985_2026 (1).csv"
 )
-print("数据情况：")
+print("Dataset information:")
 print(json.dumps(metadata, indent=2))
 
 result = heatwave_risk_tool(days=4, temperature=31)
-print("\n天气工具结果：")
+print("\nWeather tool result:")
 print(json.dumps(result, indent=2))
 
 # %%
@@ -290,12 +290,12 @@ def ask_heatlens(question):
     raw = qwen_generate(EXTRACTION_PROMPT, question)
     parsed = route_extraction(raw)
 
-    print("模型原始提取：", raw)
-    print("程序路由结果：", parsed)
+    print("Raw model extraction:", raw)
+    print("Application routing result:", parsed)
 
 
     if parsed["action"] != "call_tool":
-        print("\n需要补充信息或超出范围：")
+        print("\nMissing information or out-of-scope request:")
         print(parsed["message"])
         return {
             "question": question,
@@ -311,7 +311,7 @@ def ask_heatlens(question):
         temperature=parsed["temperature"],
     )
 
-    print("\n真实天气工具结果：")
+    print("\nHistorical weather tool result:")
     print(json.dumps(tool_result, indent=2))
 
 
@@ -324,7 +324,7 @@ def ask_heatlens(question):
         max_new_tokens=256,
     )
 
-    print("\nHeatLens 回答：")
+    print("\nHeatLens response:")
     print(answer)
 
     return {

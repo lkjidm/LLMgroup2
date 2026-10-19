@@ -93,16 +93,16 @@ SYSTEM_PROMPT = (
 #         yield partial_text
 
 def bot_response(message, history):
-    # 纯文本模式下，message 直接就是用户输入的文本字符串
+    # In text-only mode, message is the user input string
     user_text = message.strip() if isinstance(message, str) else message.get("text", "").strip()
 
-    # 构建对话上下文
+    # Build the conversation context
     conversation = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": user_text}
     ]
 
-    # 应用对话模板生成输入 text_prompt
+    # Apply the chat template to create text_prompt
     text_prompt = tokenizer.apply_chat_template(
         conversation, 
         tokenize=False, 
@@ -114,7 +114,7 @@ def bot_response(message, history):
     streamer = TextIteratorStreamer(tokenizer, skip_prompt=True, skip_special_tokens=True)
     generation_kwargs = dict(**inputs, streamer=streamer, generation_config=temp_config)
 
-    # 开启线程并行生成，实现流式输出
+    # Start generation in a separate thread for streaming output
     thread = Thread(target=model.generate, kwargs=generation_kwargs)
     thread.start()
 

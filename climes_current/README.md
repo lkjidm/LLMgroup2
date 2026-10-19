@@ -1,17 +1,14 @@
-# Current CLIMES application
+# CLIMES Application
 
-Run `python integrated.py` from the repository root. The launcher starts
-`climes_current/integrated_final.py`; `heatwave_stats.py` at the root supplies
-historical calculations. See the root [README](../readme.md) for Colab setup,
-example questions, source coverage and limitations.
+The repository entry point is `integrated.py`, which launches
+`climes_current/integrated_final.py`. Historical temperature calculations are
+implemented in `heatwave_stats.py` at the repository root.
 
-The r4 cloud batch recorded 17 passing cases on 19 October 2026. Its original
-answers and acceptance report are in `validation/live_r4_20261019/`. The main
-application script and relevant components were compared with the merged main
-branch; this does not constitute a fresh cloud execution of that Git commit.
-The local suite has 38 regression methods and 19 integration methods. The
-synthetic harness uses service doubles and is separate from live evidence.
+See the [project README](../readme.md) for the application overview and setup.
+`START.py` runs the acceptance batch, exports its evidence ZIP, and opens the UI.
 
-`START.main(project=...)` runs the live batch, exports its evidence ZIP and
-launches the UI. Older loose result files in this folder describe earlier
-candidates. They are retained as development history, not current acceptance.
+The local checks comprise 38 regression test methods and 19 integration/output
+checks. The Colab acceptance run on 19 October 2026 recorded 17 passing cases.
+Its answers and acceptance report are retained in `validation/live_r4_20261019/`.
+The synthetic harness is a separate test using service doubles.
+Earlier result files in this folder document previous development versions.

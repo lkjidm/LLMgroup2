@@ -27,7 +27,7 @@
     "integrated.py": "428d9c6a54d9034b7903b5404d6e42e8d9dee715abefeb173d496d769b382ada",
     "heatwave_stats.py": "58910d909fead20bdead84325e1ec2910233c7ee54b248fa648e9b76319b8da6",
     "requirements.txt": "db3a4b06606f550b7f1a85233aa88a56881f6c04da35ff0939450c95e0aaa92d",
-    "readme.md": "a15aad299e7f981d02e0306009a3cc23688d3abe58f51a7e686ba121c3356933",
+    "readme.md": "03bada11245e09f907b3ac3b5623f39308ade2c65567cc7dff37b94588d3dbef",
     ".gitignore": "1110289a60fe87946d34512fc9407985f2348ab93101fedd8c875c5e8ec51b69",
     "test.ipynb": "d5dfadc4f9ec6f8116715df1003116d42756129dfb2f6ef5224a2248c9d6ea91",
     "climes_current/integrated_final.py": "2cac70585c43919535551342fc131ab0474aff6392c4cc2770c7f8587a2f9a67",
@@ -36,7 +36,7 @@
     "climes_current/check_acceptance_harness.py": "cc8d6510620f5bd5d10972a118379a97c15a4d1da2f16ff1a544fb1af085c368",
     "climes_current/check_integration.py": "7c06ffa9250472d43de931f565f684608462814cf8b4dbc06afc486181ff4e13",
     "climes_current/replay_fixtures.json": "6070561bc5b2fe4d52fdf27902f9bab08c05a755a1f97705cbb30969fb675acc",
-    "climes_current/README.md": "38d913dfd3a1bd5a3538ad9396c44314b7072bd9e3d6c543c4df9c562d85f6b4",
+    "climes_current/README.md": "b5be40a41df19100462f287b1f2af2f0200773d8fc77ce8fc931b86eb96ed28d",
     "uppsala_tmax_1985_2026.csv": "05040f10b308307cec5ada670c1ae6d102fae60e3d78c2e06f5a59260c98296e",
     "climes_current/validation/synthetic_harness_17.txt": "e695ea6ec8d489da3b15c9fb5e084dddde9a46cb3dcfd8cb5cc5158f4a9ada73",
     "climes_current/validation/offline_38.txt": "9817401173d0546bb0e99af6dd05be7e7498e072850e0ba693918aa42a8aae3c",
@@ -47,7 +47,12 @@
     "climes_current/validation/live_r4_20261019/acceptance.json": "55850111ba8b8158dee9f2950012827ec02107a6f8a3301e8bc660fcceb1663a",
     "climes_current/validation/live_r4_20261019/verification.json": "c74738ec982460eeb174180d2246464acde036601e3aea038fc5997393153f53",
     "climes_current/validation/live_r4_20261019/cloud_candidate_manifest.json": "af42b06930ae00a9447a65f4956307c0044789d281d179a54a4c56378dfc6bed",
-    "README_QWEN.md": "d3fcc4bd9b03b35f5e2e842e33051737366985082f19d258f3e00421e5a34c68"
+    "README_QWEN.md": "d3fcc4bd9b03b35f5e2e842e33051737366985082f19d258f3e00421e5a34c68",
+    "old/app.py": "ea6814c6b94331d39562c2733122a45128dc97148cef0141c68f59dd33d4164a",
+    "old/demo.py": "77ec3a4d7048ec1ba43f649dd0eaec53b53c4a25bc9261ee48313b6beafa515e",
+    "old/rag.py": "8be2f04b573728caf087c0c2e75b04ec3d877b32e3e6cb444ed1b68be261d5e1",
+    "old/uppsala.py": "c7f7f9595cbea380a16c35c764f695dbfb9fdd34f822f8cc24c01c85abd989d3",
+    "experiment/04_Qwen35_HeatLens_Demo.ipynb": "d59f937e6e555a3396f62717f510a75f103ad70412394cd62573f0338e6a9207"
   },
   "verification_scope": {
     "cloud_run": "Recorded r4 candidate run on 19 October 2026; not a new cloud run of merged main",
